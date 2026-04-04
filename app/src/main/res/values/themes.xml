@@ -1,0 +1,5 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Base.Theme.NexiRide2" parent="android:Theme.Material.Light.NoActionBar">
+    </style>
+    <style name="Theme.NexiRide2" parent="Base.Theme.NexiRide2" />
+</resources>

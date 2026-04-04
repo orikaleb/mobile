@@ -1,0 +1,76 @@
+package com.example.nexiride2.presentation.auth
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.nexiride2.domain.model.User
+import com.example.nexiride2.domain.repository.AuthRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+data class AuthUiState(
+    val isLoading: Boolean = false,
+    val user: User? = null,
+    val error: String? = null,
+    val isLoggedIn: Boolean = false,
+    val otpSent: Boolean = false,
+    val otpVerified: Boolean = false,
+    val passwordReset: Boolean = false
+)
+
+@HiltViewModel
+class AuthViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel() {
+    private val _uiState = MutableStateFlow(AuthUiState(isLoggedIn = authRepository.isLoggedIn(), user = authRepository.getCurrentUser()))
+    val uiState = _uiState.asStateFlow()
+
+    fun login(email: String, password: String) = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        authRepository.login(email, password).fold(
+            onSuccess = { _uiState.value = _uiState.value.copy(isLoading = false, user = it, isLoggedIn = true) },
+            onFailure = { _uiState.value = _uiState.value.copy(isLoading = false, error = it.message) }
+        )
+    }
+
+    fun signUp(name: String, email: String, phone: String, password: String) = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        authRepository.signUp(name, email, phone, password).fold(
+            onSuccess = { _uiState.value = _uiState.value.copy(isLoading = false, user = it, isLoggedIn = true) },
+            onFailure = { _uiState.value = _uiState.value.copy(isLoading = false, error = it.message) }
+        )
+    }
+
+    fun forgotPassword(email: String) = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        authRepository.forgotPassword(email).fold(
+            onSuccess = { _uiState.value = _uiState.value.copy(isLoading = false, otpSent = true) },
+            onFailure = { _uiState.value = _uiState.value.copy(isLoading = false, error = it.message) }
+        )
+    }
+
+    fun verifyOtp(email: String, otp: String) = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        authRepository.verifyOtp(email, otp).fold(
+            onSuccess = { _uiState.value = _uiState.value.copy(isLoading = false, otpVerified = it, error = if (!it) "Invalid OTP" else null) },
+            onFailure = { _uiState.value = _uiState.value.copy(isLoading = false, error = it.message) }
+        )
+    }
+
+    fun resetPassword(email: String, newPassword: String) = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        authRepository.resetPassword(email, newPassword).fold(
+            onSuccess = { _uiState.value = _uiState.value.copy(isLoading = false, passwordReset = true) },
+            onFailure = { _uiState.value = _uiState.value.copy(isLoading = false, error = it.message) }
+        )
+    }
+
+    fun logout() = viewModelScope.launch {
+        authRepository.logout()
+        _uiState.value = AuthUiState()
+    }
+
+    fun clearError() { _uiState.value = _uiState.value.copy(error = null) }
+}
