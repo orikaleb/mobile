@@ -1,5 +1,9 @@
 package com.example.nexiride2.presentation.tracking
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -15,9 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -71,8 +77,27 @@ private fun buildFullPath(waypoints: List<LatLng>, steps: Int = 20): List<LatLng
 @Composable
 fun LiveTrackingScreen(
     title: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    viewModel: LiveTrackingViewModel
 ) {
+    val context = LocalContext.current
+    val userLatLng by viewModel.userLocation.collectAsState()
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        if (grants.values.any { it }) viewModel.startLocationUpdates()
+    }
+    LaunchedEffect(Unit) {
+        val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (fine || coarse) viewModel.startLocationUpdates()
+        else {
+            permissionLauncher.launch(
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            )
+        }
+    }
+
     val fullPath  = remember { buildFullPath(routeWaypoints) }
     val totalPts  = fullPath.size
 
@@ -95,6 +120,7 @@ fun LiveTrackingScreen(
         fullPath[busIdx].latitude  + (fullPath[busIdx + 1].latitude  - fullPath[busIdx].latitude)  * localT,
         fullPath[busIdx].longitude + (fullPath[busIdx + 1].longitude - fullPath[busIdx].longitude) * localT
     )
+    val distanceToBusKm = userLatLng?.let { haversineKm(it, busPt) }
 
     // Nearest named stop
     val waypointIdx = ((progress * (routeWaypoints.size - 1)).toInt()).coerceIn(0, routeWaypoints.size - 2)
@@ -181,6 +207,14 @@ fun LiveTrackingScreen(
                 title   = "Bus #GH-1234",
                 snippet = "Near $nearestStop • ${speedKmh} km/h"
             )
+
+            userLatLng?.let { u ->
+                Marker(
+                    state = MarkerState(u),
+                    title = "Your location (GPS)",
+                    snippet = distanceToBusKm?.let { d -> "~${"%.1f".format(d)} km to bus" } ?: "GPS fix"
+                )
+            }
         }
 
         // ── Top bar ───────────────────────────────────────────────────────────
@@ -377,6 +411,15 @@ fun LiveTrackingScreen(
                             fontWeight = FontWeight.Bold,
                             color = PrimaryBlue)
                     }
+                }
+
+                distanceToBusKm?.let { km ->
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        "Straight-line distance from your GPS position to the bus: ~${"%.1f".format(km)} km",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

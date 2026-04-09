@@ -15,7 +15,9 @@ room = "2.7.0"
 securityCrypto = "1.1.0-alpha06"
 workManager = "2.10.0"
 maps = "19.2.0"
+playServicesLocation = "21.3.0"
 mapsCompose = "4.4.1"
+gson = "2.11.0"
 hiltNavigationCompose = "1.2.0"
 ksp = "2.1.10-1.0.29"
 junit = "4.13.2"
@@ -52,7 +54,9 @@ room-compiler = { group = "androidx.room", name = "room-compiler", version.ref =
 security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "maps" }
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
+gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

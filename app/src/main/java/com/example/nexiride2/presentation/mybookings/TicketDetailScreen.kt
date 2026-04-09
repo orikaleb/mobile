@@ -1,6 +1,9 @@
 package com.example.nexiride2.presentation.mybookings
 
+import android.content.Context
 import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,11 +19,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.example.nexiride2.domain.model.BookingStatus
+import com.example.nexiride2.presentation.sensor.ProximityCoveredEffect
 import com.example.nexiride2.ui.components.QrCodeView
 import com.example.nexiride2.ui.theme.*
 import kotlinx.coroutines.launch
@@ -39,6 +44,14 @@ fun TicketDetailScreen(
     val downloaded by viewModel.downloadedTickets.collectAsState()
     val downloadedTicket = downloaded[booking.id]
     val context = LocalContext.current
+    var proximityNear by remember { mutableStateOf(false) }
+    val hasProximity = remember(context) {
+        (context.getSystemService(Context.SENSOR_SERVICE) as SensorManager)
+            .getDefaultSensor(Sensor.TYPE_PROXIMITY) != null
+    }
+    if (hasProximity) {
+        ProximityCoveredEffect { proximityNear = it }
+    }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -107,7 +120,24 @@ fun TicketDetailScreen(
                         )
                     }
                     Spacer(Modifier.height(10.dp))
-                    QrCodeView(data = booking.qrCodeData, size = 180.dp, showActions = true)
+                    Box(contentAlignment = Alignment.Center) {
+                        QrCodeView(data = booking.qrCodeData, size = 180.dp, showActions = !proximityNear)
+                        if (proximityNear) {
+                            Box(
+                                Modifier
+                                    .size(180.dp)
+                                    .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(12.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Move the phone away to reveal your QR code",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(10.dp))
                     Text(
                         booking.referenceCode,

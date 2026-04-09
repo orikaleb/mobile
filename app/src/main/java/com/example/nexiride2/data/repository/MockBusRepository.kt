@@ -2,17 +2,18 @@ package com.example.nexiride2.data.repository
 
 import com.example.nexiride2.data.local.MockData
 import com.example.nexiride2.domain.model.Route
+import com.example.nexiride2.domain.model.RouteSearchResult
 import com.example.nexiride2.domain.model.Seat
 import com.example.nexiride2.domain.repository.BusRepository
 import kotlinx.coroutines.delay
 
 class MockBusRepository : BusRepository {
-    override suspend fun searchRoutes(origin: String, destination: String, date: String, passengers: Int): Result<List<Route>> {
+    override suspend fun searchRoutes(origin: String, destination: String, date: String, passengers: Int): Result<RouteSearchResult> {
         delay(600)
         val results = MockData.routes.filter {
             it.origin.equals(origin, true) && it.destination.equals(destination, true) && it.availableSeats >= passengers
         }
-        return Result.success(results)
+        return Result.success(RouteSearchResult(results, fromCache = false))
     }
 
     override suspend fun getRouteById(routeId: String): Result<Route> {

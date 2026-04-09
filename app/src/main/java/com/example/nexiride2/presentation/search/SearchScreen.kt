@@ -10,6 +10,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.nexiride2.presentation.sensor.ShakeToRefresh
 import com.example.nexiride2.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -20,6 +21,11 @@ fun SearchScreen(searchViewModel: SearchViewModel, onSearchResults: () -> Unit) 
     var expanded2 by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.results) { if (uiState.results.isNotEmpty()) onSearchResults() }
+
+    ShakeToRefresh(
+        enabled = uiState.origin.isNotBlank() && uiState.destination.isNotBlank() && !uiState.isLoading,
+        onShake = { searchViewModel.search() }
+    )
 
     Scaffold(topBar = { TopAppBar(title = { Text("Search Buses", fontWeight = FontWeight.Bold) }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(20.dp)) {
@@ -73,6 +79,10 @@ fun SearchScreen(searchViewModel: SearchViewModel, onSearchResults: () -> Unit) 
             }
 
             uiState.error?.let { Spacer(Modifier.height(12.dp)); Text(it, color = StatusError, style = MaterialTheme.typography.bodySmall) }
+            uiState.cacheHint?.let { hint ->
+                Spacer(Modifier.height(8.dp))
+                Text(hint, color = MaterialTheme.colorScheme.tertiary, style = MaterialTheme.typography.bodySmall)
+            }
 
             Spacer(Modifier.height(24.dp))
 

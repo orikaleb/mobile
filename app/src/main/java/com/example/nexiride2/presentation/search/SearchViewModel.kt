@@ -20,6 +20,7 @@ data class SearchUiState(
     val isLoading: Boolean = false,
     val results: List<Route> = emptyList(),
     val filteredResults: List<Route> = emptyList(),
+    val cacheHint: String? = null,
     val selectedRoute: Route? = null,
     val seats: List<Seat> = emptyList(),
     val error: String? = null,
@@ -46,9 +47,20 @@ class SearchViewModel @Inject constructor(
     fun updatePassengers(p: Int) { _uiState.value = _uiState.value.copy(passengers = p) }
 
     fun search() = viewModelScope.launch {
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null, cacheHint = null)
         searchUseCase(_uiState.value.origin, _uiState.value.destination, _uiState.value.date, _uiState.value.passengers).fold(
-            onSuccess = { _uiState.value = _uiState.value.copy(isLoading = false, results = it, filteredResults = it) },
+            onSuccess = { payload ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    results = payload.routes,
+                    filteredResults = payload.routes,
+                    cacheHint = if (payload.fromCache) {
+                        "Showing saved results (device offline or network unavailable)."
+                    } else {
+                        null
+                    }
+                )
+            },
             onFailure = { _uiState.value = _uiState.value.copy(isLoading = false, error = it.message) }
         )
     }

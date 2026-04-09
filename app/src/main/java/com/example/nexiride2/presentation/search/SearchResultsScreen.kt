@@ -55,8 +55,23 @@ fun SearchResultsScreen(searchViewModel: SearchViewModel, onBack: () -> Unit, on
             LazyColumn(Modifier.padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(vertical = 8.dp)) {
                 item {
-                    Text("${uiState.filteredResults.size} bus${if (uiState.filteredResults.size > 1) "es" else ""} found",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("${uiState.filteredResults.size} bus${if (uiState.filteredResults.size > 1) "es" else ""} found",
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        uiState.cacheHint?.let { hint ->
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+                            ) {
+                                Text(
+                                    hint,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
+                        }
+                    }
                 }
                 items(uiState.filteredResults) { route ->
                     BusResultCard(route = route, onClick = { searchViewModel.selectRoute(route.id); onRouteSelected(route.id) })

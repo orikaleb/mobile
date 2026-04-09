@@ -1,10 +1,14 @@
 package com.example.nexiride2.di
 
 import android.content.Context
+import com.example.nexiride2.data.connectivity.NetworkStatusProvider
+import com.example.nexiride2.data.local.db.DownloadedTicketDao
+import com.example.nexiride2.data.local.db.RouteCacheDao
 import com.example.nexiride2.data.local.pdf.TicketPdfGenerator
+import com.example.nexiride2.data.repository.CachingBusRepository
 import com.example.nexiride2.data.repository.DownloadedTicketRepositoryImpl
 import com.example.nexiride2.data.repository.*
-import com.example.nexiride2.data.local.db.DownloadedTicketDao
+import com.google.gson.Gson
 import com.example.nexiride2.domain.repository.*
 import dagger.Module
 import dagger.Provides
@@ -27,7 +31,23 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun provideBusRepository(): BusRepository = MockBusRepository()
+    fun provideMockBusRepository(): MockBusRepository = MockBusRepository()
+
+    @Provides
+    @Singleton
+    fun provideBusRepository(
+        mockBusRepository: MockBusRepository,
+        routeCacheDao: RouteCacheDao,
+        gson: Gson,
+        networkStatus: NetworkStatusProvider
+    ): BusRepository {
+        return CachingBusRepository(
+            remote = mockBusRepository,
+            routeCacheDao = routeCacheDao,
+            gson = gson,
+            networkStatus = networkStatus
+        )
+    }
 
     @Provides
     @Singleton

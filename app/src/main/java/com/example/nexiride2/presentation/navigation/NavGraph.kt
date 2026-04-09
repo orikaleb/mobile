@@ -23,6 +23,7 @@ import com.example.nexiride2.presentation.onboarding.*
 import com.example.nexiride2.presentation.profile.*
 import com.example.nexiride2.presentation.search.*
 import com.example.nexiride2.presentation.tracking.LiveTrackingScreen
+import com.example.nexiride2.presentation.tracking.LiveTrackingViewModel
 
 sealed class Screen(val route: String) {
     object Splash : Screen("splash")
@@ -199,12 +200,13 @@ fun NexiRideNavHost(navController: NavHostController = rememberNavController()) 
                     onLiveTracking = { bookingId -> navController.navigate(Screen.LiveTracking.createRoute(bookingId)) }
                 )
             }
-            composable(Screen.LiveTracking.route) { backStackEntry ->
-                val bookingId = backStackEntry.arguments?.getString("bookingId") ?: ""
+            composable(Screen.LiveTracking.route) {
+                val liveTrackingViewModel: LiveTrackingViewModel = hiltViewModel()
                 val booking = myBookingsViewModel.uiState.collectAsState().value.selectedBooking
                 LiveTrackingScreen(
                     title = booking?.let { "${it.route.origin} → ${it.route.destination}" } ?: "Live Tracking",
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    viewModel = liveTrackingViewModel
                 )
             }
             composable(Screen.Notifications.route) { NotificationsScreen(notificationsViewModel) }

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.nexiride2.data.local.db.AppDatabase
 import com.example.nexiride2.data.local.db.DownloadedTicketDao
+import com.example.nexiride2.data.local.db.RouteCacheDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,10 +19,15 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
-        return Room.databaseBuilder(context, AppDatabase::class.java, "app_db").build()
+        return Room.databaseBuilder(context, AppDatabase::class.java, "app_db")
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides
     fun provideDownloadedTicketDao(db: AppDatabase): DownloadedTicketDao = db.downloadedTicketDao()
+
+    @Provides
+    fun provideRouteCacheDao(db: AppDatabase): RouteCacheDao = db.routeCacheDao()
 }
 
