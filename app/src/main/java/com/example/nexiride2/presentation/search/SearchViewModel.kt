@@ -4,17 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nexiride2.domain.model.Route
 import com.example.nexiride2.domain.model.Seat
-import com.example.nexiride2.domain.model.SeatStatus
 import com.example.nexiride2.domain.repository.BusRepository
 import com.example.nexiride2.domain.usecase.SearchBusesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.random.Random
 
 data class SearchUiState(
     val isLoading: Boolean = false,
@@ -94,23 +90,10 @@ class SearchViewModel @Inject constructor(
         busRepository.getSeatsForRoute(routeId).onSuccess { seats ->
             _uiState.value = _uiState.value.copy(seats = seats)
         }
-
-        // Mock "WebSocket" seat updates: periodically reserve a few seats to simulate real-time changes.
-        viewModelScope.launch {
-            while (isActive) {
-                delay(2_500)
-                val current = _uiState.value.seats
-                if (current.isEmpty()) continue
-                val available = current.filter { it.status == SeatStatus.AVAILABLE }
-                if (available.isEmpty()) continue
-                val toReserve = available.shuffled().take(Random.nextInt(1, 4))
-                val updated = current.map { seat ->
-                    if (toReserve.any { it.id == seat.id }) seat.copy(status = SeatStatus.RESERVED) else seat
-                }
-                _uiState.value = _uiState.value.copy(seats = updated)
-            }
-        }
     }
+
+    /** Reload seat map from Supabase (e.g. after another booking). */
+    fun refreshSeats(routeId: String) = loadSeats(routeId)
 
     fun getCompanies(): List<String> = _uiState.value.results.map { it.bus.companyName }.distinct()
 }

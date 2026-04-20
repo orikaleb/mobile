@@ -14,5 +14,5 @@ object SerializationModule {
 
     @Provides
     @Singleton
-    fun provideGson(): Gson = GsonBuilder().create()
+    fun provideGson(): Gson = GsonBuilder().serializeNulls().create()
 }

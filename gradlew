@@ -116,6 +116,31 @@ esac
 
 CLASSPATH="\\\"\\\""
 
+# NexiRide2: Cursor/VS Code "Java" bundles are incomplete JREs (no jlink). AGP needs a real JDK.
+case "${JAVA_HOME:-}" in
+  */.cursor/*|*redhat.java*|*/.vscode/*)
+    JAVA_HOME=
+    ;;
+esac
+if [ -n "${JAVA_HOME:-}" ] && [ ! -x "${JAVA_HOME}/bin/jlink" ]; then
+  JAVA_HOME=
+fi
+if [ -z "${JAVA_HOME:-}" ]; then
+  if [ -x "/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home/bin/jlink" ]; then
+    JAVA_HOME="/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home"
+    export JAVA_HOME
+  elif [ "$darwin" = true ] && [ -x "/Applications/Android Studio.app/Contents/jbr/Contents/Home/bin/jlink" ]; then
+    JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+    export JAVA_HOME
+  elif [ "$darwin" = true ] && [ -x "/usr/libexec/java_home" ]; then
+    _nexi_jh=$(/usr/libexec/java_home -v 21 2>/dev/null) || _nexi_jh=$(/usr/libexec/java_home -v 17 2>/dev/null) || _nexi_jh=
+    if [ -n "$_nexi_jh" ] && [ -x "$_nexi_jh/bin/jlink" ]; then
+      JAVA_HOME="$_nexi_jh"
+      export JAVA_HOME
+    fi
+    unset _nexi_jh
+  fi
+fi
 
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then

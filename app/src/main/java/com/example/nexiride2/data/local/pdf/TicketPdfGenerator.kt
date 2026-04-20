@@ -50,7 +50,7 @@ class TicketPdfGenerator(
             row("Company", booking.route.bus.companyName)
             row("Seats", booking.seats.joinToString { it.number })
             row("Passengers", booking.passengers.joinToString { it.name })
-            row("Payment", booking.paymentMethod)
+            row("Paid with", booking.paymentMethod)
             booking.baggage?.let {
                 row("Baggage", "${it.numberOfBags} bags (${it.totalWeight} kg)")
             }

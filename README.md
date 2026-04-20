@@ -19,7 +19,7 @@ Passengers using **Android phones** (minSdk 24), including **mid-range devices**
 ## 2. System architecture
 
 **Design pattern: MVVM**  
-Compose **screens** observe **ViewModels** (`SearchViewModel`, `LiveTrackingViewModel`, etc.). ViewModels call **use cases** and **repository interfaces** in the **domain** layer. **Data** implements repositories (mock remote today, Room for persistence). **Dependency injection** is Hilt.
+Compose **screens** observe **ViewModels** (`SearchViewModel`, `LiveTrackingViewModel`, etc.). ViewModels call **use cases** and **repository interfaces** in the **domain** layer. **Data** implements repositories: **Supabase Postgres** (via **PostgREST** and Retrofit) for routes, bookings, seats, profiles, payment methods/transactions, and in-app notifications; **Supabase Auth** (supabase-kt) for sign-in; **Room** for on-device route cache and downloaded ticket PDFs. **Dependency injection** is Hilt.
 
 **Architecture diagram (data flow)**
 
@@ -27,9 +27,11 @@ Compose **screens** observe **ViewModels** (`SearchViewModel`, `LiveTrackingView
 flowchart LR
     UI[Compose UI] --> VM[ViewModel]
     VM --> UC[Use cases]
-    UC --> BR[BusRepository / others]
+    UC --> BR[BusRepository]
+    UC --> BK[BookingRepository]
     BR --> CACHE[Room route_cache]
-    BR --> REMOTE[Mock API layer]
+    BR --> REMOTE[Supabase PostgREST routes]
+    BK --> SB[Supabase bookings]
     VM --> UI
 ```
 
@@ -38,8 +40,9 @@ flowchart LR
 | Service | Role |
 |--------|------|
 | **Google Maps SDK / Maps Compose** | Map and markers on live tracking; **Google Play Services Location (Fused)** for GPS updates. |
-| **Retrofit + OkHttp** | Scaffolded for a future REST backend (`NetworkModule`); domain data is still served by **mock repositories**. |
-| **Firebase** | Not used. Listed here so coursework explicitly notes “none”; push/auth could replace mocks later. |
+| **Retrofit + OkHttp** | **`SupabaseModule`** exposes `SupabasePostgrestApi` against `…/rest/v1/` with `apikey` + `Authorization: Bearer <user JWT or anon>` (JWT from **`SupabaseAuthRepository`** session when signed in). |
+| **Supabase (Postgres + PostgREST)** | Tables **`routes`**, **`bookings`**, **`cities`**, **`route_seats`**, **`profiles`**, **`payment_methods`**, **`payment_transactions`**, **`notifications`** (see `supabase/schema.sql`). Debug **`SupabaseSeed`** fills empty **routes**, **cities**, and **route_seats** from bundled `MockData`. **Bookings** are created only after **real sign-up** (they reference `auth.users`). |
+| **Supabase Auth** | Wired via **`SupabaseAuthRepository`** (`auth-kt`: email/password sign-in and sign-up, password reset email, session-backed Retrofit calls). For local dev, disable **email confirmations** under **Authentication → Providers → Email** so `signUp` returns a session immediately. |
 
 ---
 
@@ -54,7 +57,7 @@ flowchart LR
 
 **Sync / offline strategy: cache-then-network (with offline read)**  
 
-- **Online:** `CachingBusRepository` calls the mock “remote” `MockBusRepository`, then **writes** the JSON payload to `route_cache` under a stable key (e.g. `search:origin|destination|date|passengers` or `cache:popular_routes`).  
+- **Online:** `CachingBusRepository` calls **`SupabaseBusRepository`** (PostgREST), then **writes** the JSON payload to `route_cache` under a stable key (e.g. `search:origin|destination|date|passengers` or `cache:popular_routes`).  
 - **Offline:** If `ConnectivityManager` reports no usable network, search loads **only** from `route_cache` for that key; if nothing was cached yet, the user sees a clear error asking them to search once while online.  
 - **PDF tickets:** `DownloadedTicketRepositoryImpl` writes files and metadata so tickets stay usable without refetching the booking.
 
@@ -86,13 +89,41 @@ Layouts use **Compose `dp`** and flexible modifiers (`fillMaxWidth`, `weight`, s
 
 ---
 
+## Supabase setup
+
+1. Create a project at [Supabase](https://supabase.com/) and open **SQL** → run `supabase/schema.sql` (creates tables, RLS policies, `profiles` trigger on `auth.users`, and links `bookings.user_id` to `auth.users`). Use a **new** project or drop conflicting `public` tables first.
+2. Under **Project Settings → API**, copy the **Project URL** and **anon public** key.
+3. Add to your machine’s **`local.properties`** (not committed):
+
+   ```properties
+   supabase.url=https://YOUR_REF.supabase.co
+   supabase.anon.key=<anon JWT or sb_publishable_… from Project Settings → API>
+   ```
+
+   See `local.properties.example`. **Never commit keys** or paste them into `MainActivity.kt`; the Supabase “Connect” snippet is mapped in code to **`SupabaseModule.provideSupabaseClient()`** (`createSupabaseClient { install(Auth); install(Postgrest) }`) using **`BuildConfig`** values from `local.properties`.
+
+4. **Dashboard “Kotlin” snippet vs this app:** The docs show a top-level `val supabase = createSupabaseClient(...)` in `MainActivity`. Here you inject **`SupabaseClient`** (Hilt) or use **`SupabasePostgrestApi`** (Retrofit). For `decodeList<MyDto>()`, use **`@Serializable`** DTOs (see `SupabaseDtos.kt`); the Kotlin serialization plugin is enabled in `:app`.
+
+5. **RLS:** `schema.sql` enables row-level security with **dev-oriented** policies (e.g. anon can insert routes/cities/seats for the in-app seed). **Tighten** route/seat insert policies before production; prefer **service-role** seeding or SQL-only seeds for prod.
+6. **Debug auto-seed:** With a non-blank anon key, first **debug** launch runs **`SupabaseSeed`** for empty **routes**, **cities**, and **route_seats** only. **Bookings** are not seeded (they require a real `auth` user).
+7. **Payments:** The app records **`payment_transactions`** and stores saved methods in **`payment_methods`** (ledger in your database). Integrating **Paystack / Stripe** still requires your backend or Edge Functions for client secrets and webhooks.
+8. **Push (FCM):** In-app notifications sync from **`notifications`** via PostgREST. **Firebase Cloud Messaging** is not bundled (no `google-services.json` in repo); add FCM if you need push when the app is closed.
+
+---
+
 ## Build
 
-Requires Android SDK and a JDK suitable for your AGP version. From project root:
+Requires Android SDK and a **full JDK 17+** (with `jlink`), not a minimal JRE. From project root:
 
 ```bash
 ./gradlew assembleDebug
 ```
+
+**If the build fails with `jlink ... does not exist` (often under a `.cursor` or VS Code Java extension path):**
+
+1. **Android Studio:** **Settings → Build, Execution, Deployment → Gradle → Gradle JDK** → choose **Project SDK** or **Embedded JDK** (not a “JRE” from another editor).
+2. This repo pins **`.idea/gradle.xml` → Gradle JDK** to **`/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home`** (full JDK with `jlink`). On **Windows/Linux**, edit that path to your JDK, or install JDK 21 at the same macOS path if you use a Mac.
+3. **Command line:** ensure `JAVA_HOME` points to a full JDK, or rely on `org.gradle.java.home` in **`gradle.properties`** (macOS path there is an example—adjust or remove if you use Windows/Linux).
 
 Set a valid **Google Maps API key** in `app/src/main/res/values/strings.xml` (`google_maps_key`).
 

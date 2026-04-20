@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.example.nexiride2.data.local.db.AppDatabase
 import com.example.nexiride2.data.local.db.DownloadedTicketDao
 import com.example.nexiride2.data.local.db.RouteCacheDao
+import com.example.nexiride2.data.local.db.WalletDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,5 +30,8 @@ object DatabaseModule {
 
     @Provides
     fun provideRouteCacheDao(db: AppDatabase): RouteCacheDao = db.routeCacheDao()
+
+    @Provides
+    fun provideWalletDao(db: AppDatabase): WalletDao = db.walletDao()
 }
 

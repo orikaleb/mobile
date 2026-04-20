@@ -24,8 +24,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.nexiride2.domain.model.PaymentMethod
-import com.example.nexiride2.domain.model.PaymentType
 import com.example.nexiride2.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,7 +45,17 @@ fun ProfileScreen(
         showComingSoon?.let { snackbarHostState.showSnackbar("$it — Coming soon!"); showComingSoon = null }
     }
     LaunchedEffect(uiState.updateSuccess) {
-        if (uiState.updateSuccess) { showEditSheet = false; snackbarHostState.showSnackbar("Profile updated ✓") }
+        if (uiState.updateSuccess) {
+            showEditSheet = false
+            snackbarHostState.showSnackbar("Profile updated ✓")
+            viewModel.clearUpdateSuccess()
+        }
+    }
+    LaunchedEffect(uiState.walletMessage) {
+        uiState.walletMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearWalletMessage()
+        }
     }
 
     // ── Edit bottom sheet ─────────────────────────────────────────────────────
@@ -227,26 +235,12 @@ fun ProfileScreen(
                 ) { showEditSheet = true }
 
                 RowDivider()
-
-                SettingsRow(
-                    icon = Icons.Default.CreditCard,
-                    iconBg = AccentGreen.copy(.1f),
-                    iconTint = AccentGreenDark,
-                    title = "Payment Methods",
-                    subtitle = "${uiState.paymentMethods.size} saved methods"
-                ) { showComingSoon = "Manage Payments" }
             }
 
-            // Payment method pills
-            if (uiState.paymentMethods.isNotEmpty()) {
-                Column(Modifier.background(MaterialTheme.colorScheme.surface)
-                    .padding(start = 56.dp, end = 16.dp, bottom = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    uiState.paymentMethods.forEach { pm ->
-                        PaymentPill(pm = pm, onRemove = { viewModel.removePaymentMethod(pm.id) })
-                    }
-                }
-            }
+            WalletTopUpCard(
+                balanceGhs = uiState.walletBalanceGhs,
+                onAddFunds = { viewModel.topUpWallet(it) }
+            )
 
             Spacer(Modifier.height(10.dp))
 
@@ -466,47 +460,53 @@ private fun RowDivider() {
         color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-// ── Payment pill ──────────────────────────────────────────────────────────────
-
 @Composable
-private fun PaymentPill(pm: PaymentMethod, onRemove: () -> Unit) {
-    val (bg, tint) = when (pm.type) {
-        PaymentType.MOBILE_MONEY_MTN        -> Color(0xFFFFB800).copy(.12f) to Color(0xFFB8860B)
-        PaymentType.MOBILE_MONEY_VODAFONE   -> Color(0xFFE60000).copy(.12f) to Color(0xFFE60000)
-        PaymentType.MOBILE_MONEY_AIRTELTIGO -> Color(0xFF0070C0).copy(.12f) to Color(0xFF0070C0)
-        PaymentType.VISA                    -> Color(0xFF1A1F71).copy(.10f) to Color(0xFF1A1F71)
-        PaymentType.MASTERCARD              -> Color(0xFFEB001B).copy(.12f) to Color(0xFFEB001B)
-        PaymentType.CASH_AT_STATION         -> AccentGreen.copy(.12f) to AccentGreenDark
-    }
-    val icon = if (pm.type in listOf(
-            PaymentType.MOBILE_MONEY_MTN,
-            PaymentType.MOBILE_MONEY_VODAFONE,
-            PaymentType.MOBILE_MONEY_AIRTELTIGO)) Icons.Default.PhoneAndroid else Icons.Default.CreditCard
-
-    Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(.6f),
-        modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(bg),
-                contentAlignment = Alignment.Center) {
-                Icon(icon, null, Modifier.size(16.dp), tint = tint)
+private fun WalletTopUpCard(balanceGhs: Double?, onAddFunds: (String) -> Unit) {
+    var amountText by remember { mutableStateOf("") }
+    Card(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Default.AccountBalanceWallet, null, tint = AccentGreenDark)
+                Text("Wallet", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(pm.name, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                Text(pm.details, style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (pm.isDefault) {
-                Surface(shape = RoundedCornerShape(20.dp), color = AccentGreen.copy(.15f)) {
-                    Text("Default", Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold, color = AccentGreenDark)
-                }
+            Spacer(Modifier.height(8.dp))
+            if (balanceGhs != null) {
+                Text("Balance: GHS ${"%.2f".format(balanceGhs)}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             } else {
-                IconButton(onClick = onRemove, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Default.Close, "Remove", Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                Text("Sign in to use your wallet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "For trying the app — not real money.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = amountText,
+                onValueChange = { amountText = it.filter { ch -> ch.isDigit() || ch == '.' } },
+                label = { Text("Amount (GHS)") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                enabled = balanceGhs != null
+            )
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = { onAddFunds(amountText); amountText = "" },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                enabled = balanceGhs != null && amountText.isNotBlank()
+            ) {
+                Text("Add to wallet")
             }
         }
     }

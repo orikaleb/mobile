@@ -91,6 +91,46 @@ fun HomeScreen(
 
         Spacer(Modifier.height(24.dp))
 
+        val dest = uiState.featuredDestination
+        if (dest != null && uiState.routesToFeaturedDestination.isNotEmpty()) {
+            Text(
+                "Routes to $dest",
+                Modifier.padding(horizontal = 20.dp),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(12.dp))
+            uiState.routesToFeaturedDestination.take(6).forEach { route ->
+                Card(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp).clickable { onRouteClick(route.id) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                ) {
+                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                "${route.origin} → ${route.destination}",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                "${route.date} • ${route.bus.companyName}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            "GHS ${"%.0f".format(route.price)}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+        }
+
         // Promo banners
         Text("Special Offers", Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(12.dp))

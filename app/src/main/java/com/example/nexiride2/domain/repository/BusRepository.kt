@@ -9,5 +9,6 @@ interface BusRepository {
     suspend fun getRouteById(routeId: String): Result<Route>
     suspend fun getSeatsForRoute(routeId: String): Result<List<Seat>>
     suspend fun getPopularRoutes(): Result<List<Route>>
+    suspend fun getRoutesByDestination(destination: String): Result<List<Route>>
     suspend fun getAvailableCities(): List<String>
 }

@@ -1,0 +1,9 @@
+# Copy to local.properties (Android Studio creates this file; it is gitignored).
+
+sdk.dir=/path/to/Android/sdk
+
+# Supabase → Project Settings → API: Project URL + key
+# supabase.url: full URL e.g. https://xxxxx.supabase.co (no /rest/v1 suffix)
+# supabase.anon.key: legacy JWT "anon" key OR newer sb_publishable_… key from the dashboard
+supabase.url=https://YOUR_PROJECT_REF.supabase.co
+supabase.anon.key=sb_publishable_...or_jwt_anon_key...

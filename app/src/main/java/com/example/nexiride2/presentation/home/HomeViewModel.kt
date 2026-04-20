@@ -18,6 +18,8 @@ data class HomeUiState(
     val isLoading: Boolean = true,
     val user: User? = null,
     val popularRoutes: List<Route> = emptyList(),
+    val routesToFeaturedDestination: List<Route> = emptyList(),
+    val featuredDestination: String? = null,
     val recentRoutes: List<Route> = emptyList(),
     val cities: List<String> = emptyList(),
     val promoBanners: List<PromoBanner> = listOf(
@@ -41,11 +43,25 @@ class HomeViewModel @Inject constructor(
     private fun loadHomeData() = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isLoading = true)
         val user = userRepository.getUser().getOrNull()
+        val cities = busRepository.getAvailableCities()
         val popular = busRepository.getPopularRoutes().getOrDefault(emptyList())
+        val featuredDest =
+            popular.firstOrNull()?.destination?.takeIf { it.isNotBlank() }
+                ?: cities.firstOrNull()
+        val routesToFeatured =
+            featuredDest?.let { busRepository.getRoutesByDestination(it).getOrDefault(emptyList()) }
+                ?: emptyList()
         val recentIds = bookingRepository.getRecentRouteIds()
         val recent = recentIds.mapNotNull { id -> busRepository.getRouteById(id).getOrNull() }
-        val cities = busRepository.getAvailableCities()
-        _uiState.value = HomeUiState(isLoading = false, user = user, popularRoutes = popular, recentRoutes = recent, cities = cities)
+        _uiState.value = HomeUiState(
+            isLoading = false,
+            user = user,
+            popularRoutes = popular,
+            routesToFeaturedDestination = routesToFeatured,
+            featuredDestination = featuredDest,
+            recentRoutes = recent,
+            cities = cities
+        )
     }
 
     fun refresh() = loadHomeData()

@@ -170,7 +170,7 @@ fun TicketDetailScreen(
                     DetailRow("Bus", booking.route.bus.companyName)
                     DetailRow("Seats", booking.seats.joinToString { it.number })
                     DetailRow("Passengers", booking.passengers.joinToString { it.name })
-                    DetailRow("Payment", booking.paymentMethod)
+                    DetailRow("Paid with", booking.paymentMethod)
                     HorizontalDivider(Modifier.padding(vertical = 8.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Total", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

@@ -1,6 +1,7 @@
 package com.example.nexiride2.data.repository
 
 import com.example.nexiride2.data.connectivity.NetworkStatusProvider
+import com.example.nexiride2.data.supabase.SupabaseBusRepository
 import com.example.nexiride2.data.local.db.RouteCacheDao
 import com.example.nexiride2.data.local.db.RouteCacheEntity
 import com.example.nexiride2.domain.model.Route
@@ -12,7 +13,7 @@ import com.google.gson.reflect.TypeToken
 import javax.inject.Inject
 
 class CachingBusRepository @Inject constructor(
-    private val remote: MockBusRepository,
+    private val remote: SupabaseBusRepository,
     private val routeCacheDao: RouteCacheDao,
     private val gson: Gson,
     private val networkStatus: NetworkStatusProvider
@@ -75,6 +76,25 @@ class CachingBusRepository @Inject constructor(
         )
     }
 
+    override suspend fun getRoutesByDestination(destination: String): Result<List<Route>> {
+        val key = cacheKeyForDestination(destination)
+        if (!networkStatus.isConnected()) {
+            val cached = loadRoutesSuspend(key)
+            return if (cached != null) Result.success(cached)
+            else Result.failure(Exception("Offline with no saved routes for this destination."))
+        }
+        return remote.getRoutesByDestination(destination).fold(
+            onSuccess = { routes ->
+                saveRoutes(key, routes)
+                Result.success(routes)
+            },
+            onFailure = { e ->
+                val cached = loadRoutesSuspend(key)
+                if (cached != null) Result.success(cached) else Result.failure(e)
+            }
+        )
+    }
+
     override suspend fun getAvailableCities(): List<String> = remote.getAvailableCities()
 
     private suspend fun loadRoutesSuspend(key: String): List<Route>? {
@@ -99,5 +119,8 @@ class CachingBusRepository @Inject constructor(
 
         fun cacheKeyForSearch(origin: String, destination: String, date: String, passengers: Int): String =
             "search:${origin.trim().lowercase()}|${destination.trim().lowercase()}|$date|$passengers"
+
+        fun cacheKeyForDestination(destination: String): String =
+            "cache:destination:${destination.trim().lowercase()}"
     }
 }

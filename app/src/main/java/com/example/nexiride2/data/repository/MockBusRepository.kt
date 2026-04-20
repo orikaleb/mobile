@@ -32,5 +32,11 @@ class MockBusRepository : BusRepository {
         return Result.success(MockData.routes.take(4))
     }
 
+    override suspend fun getRoutesByDestination(destination: String): Result<List<Route>> {
+        delay(250)
+        val routes = MockData.routes.filter { it.destination.equals(destination, ignoreCase = true) }
+        return Result.success(routes)
+    }
+
     override suspend fun getAvailableCities() = MockData.cities
 }
