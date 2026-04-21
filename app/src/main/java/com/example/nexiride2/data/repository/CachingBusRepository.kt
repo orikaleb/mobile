@@ -1,7 +1,7 @@
 package com.example.nexiride2.data.repository
 
 import com.example.nexiride2.data.connectivity.NetworkStatusProvider
-import com.example.nexiride2.data.supabase.SupabaseBusRepository
+import com.example.nexiride2.data.firebase.FirestoreBusRepository
 import com.example.nexiride2.data.local.db.RouteCacheDao
 import com.example.nexiride2.data.local.db.RouteCacheEntity
 import com.example.nexiride2.domain.model.Route
@@ -13,7 +13,7 @@ import com.google.gson.reflect.TypeToken
 import javax.inject.Inject
 
 class CachingBusRepository @Inject constructor(
-    private val remote: SupabaseBusRepository,
+    private val remote: FirestoreBusRepository,
     private val routeCacheDao: RouteCacheDao,
     private val gson: Gson,
     private val networkStatus: NetworkStatusProvider

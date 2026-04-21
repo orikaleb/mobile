@@ -92,7 +92,7 @@ class SearchViewModel @Inject constructor(
         }
     }
 
-    /** Reload seat map from Supabase (e.g. after another booking). */
+    /** Reload seat map from Firestore (e.g. after another booking). */
     fun refreshSeats(routeId: String) = loadSeats(routeId)
 
     fun getCompanies(): List<String> = _uiState.value.results.map { it.bus.companyName }.distinct()

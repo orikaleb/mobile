@@ -3,9 +3,9 @@ import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
 }
 
 val localProperties = Properties().apply {
@@ -27,11 +27,6 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
-        val supabaseUrl = localProperties.getProperty("supabase.url", "https://placeholder.supabase.co")
-        // JWT "anon" key or newer sb_publishable_… key from Project Settings → API
-        val supabaseKey = localProperties.getProperty("supabase.anon.key", "")
-        buildConfigField("String", "SUPABASE_URL", "\"${supabaseUrl.escapeForBuildConfig()}\"")
-        buildConfigField("String", "SUPABASE_ANON_KEY", "\"${supabaseKey.escapeForBuildConfig()}\"")
     }
 
     buildTypes {
@@ -87,13 +82,11 @@ dependencies {
     implementation(libs.play.services.location)
     implementation(libs.maps.compose)
     implementation(libs.gson)
-    // Supabase Kotlin SDK: https://github.com/supabase-community/supabase-kt
-    implementation(platform(libs.supabase.bom))
-    implementation(libs.supabase.core)
-    implementation(libs.supabase.postgrest)
-    implementation(libs.supabase.auth)
-    implementation(libs.ktor.client.android)
-    implementation(libs.kotlinx.serialization.json)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.coroutines.play.services)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

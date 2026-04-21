@@ -2,8 +2,8 @@ package com.example.nexiride2
 
 import android.app.Application
 import com.example.nexiride2.BuildConfig
-import com.example.nexiride2.data.supabase.SupabaseSeed
-import com.example.nexiride2.data.supabase.SupabaseSeedEntryPoint
+import com.example.nexiride2.data.firebase.FirebaseSeedEntryPoint
+import com.example.nexiride2.data.firebase.FirestoreSeed
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -18,11 +18,11 @@ class NexiRideApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        if (BuildConfig.DEBUG && BuildConfig.SUPABASE_ANON_KEY.isNotBlank()) {
-            val entry = EntryPointAccessors.fromApplication(this, SupabaseSeedEntryPoint::class.java)
+        if (BuildConfig.DEBUG) {
+            val entry = EntryPointAccessors.fromApplication(this, FirebaseSeedEntryPoint::class.java)
             applicationScope.launch(Dispatchers.IO) {
                 runCatching {
-                    SupabaseSeed.seedIfEmpty(entry.supabaseApi(), entry.gson())
+                    FirestoreSeed.seedIfEmpty(entry.firestore(), entry.gson())
                 }
             }
         }

@@ -1,15 +1,14 @@
-package com.example.nexiride2.data.supabase
+package com.example.nexiride2.data.firebase
 
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import io.github.jan.supabase.SupabaseClient
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
-interface SupabaseSeedEntryPoint {
-    fun supabaseApi(): SupabasePostgrestApi
+interface FirebaseSeedEntryPoint {
+    fun firestore(): FirebaseFirestore
     fun gson(): Gson
-    fun supabaseClient(): SupabaseClient
 }
