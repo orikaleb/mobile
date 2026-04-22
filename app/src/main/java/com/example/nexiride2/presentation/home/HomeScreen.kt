@@ -56,14 +56,21 @@ fun HomeScreen(
                 Spacer(Modifier.height(20.dp))
 
                 // Quick actions (search lives on the Search tab)
+                // NOTE: Card background is hard-coded white, so pin text to a dark tone so it stays
+                // legible in dark mode (where MaterialTheme.colorScheme.onSurface is near-white).
                 Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = SurfaceLight)) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("Plan your trip", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            "Plan your trip",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimaryLight
+                        )
                         Spacer(Modifier.height(4.dp))
                         Text(
                             "Compare routes, times, and prices — pick your travel day on Search.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                            color = TextSecondaryLight
                         )
                         Spacer(Modifier.height(14.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

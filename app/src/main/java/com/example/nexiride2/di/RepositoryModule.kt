@@ -3,6 +3,7 @@ package com.example.nexiride2.di
 import android.content.Context
 import com.example.nexiride2.data.connectivity.NetworkStatusProvider
 import com.example.nexiride2.data.firebase.FirebaseAuthRepository
+import com.example.nexiride2.data.firebase.FirestoreAdminRepository
 import com.example.nexiride2.data.firebase.FirestoreBookingRepository
 import com.example.nexiride2.data.firebase.FirestoreBusRepository
 import com.example.nexiride2.data.firebase.FirestoreNotificationRepository
@@ -14,6 +15,7 @@ import com.example.nexiride2.data.repository.CachingBusRepository
 import com.example.nexiride2.data.repository.DownloadedTicketRepositoryImpl
 import com.example.nexiride2.data.repository.WalletRepositoryImpl
 import com.google.gson.Gson
+import com.example.nexiride2.domain.repository.AdminRepository
 import com.example.nexiride2.domain.repository.AuthRepository
 import com.example.nexiride2.domain.repository.BookingRepository
 import com.example.nexiride2.domain.repository.BusRepository
@@ -63,6 +65,10 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideUserRepository(impl: FirestoreUserRepository): UserRepository = impl
+
+    @Provides
+    @Singleton
+    fun provideAdminRepository(impl: FirestoreAdminRepository): AdminRepository = impl
 
     @Provides
     @Singleton

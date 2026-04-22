@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.example.nexiride2.presentation.admin.AdminConfig
 import com.example.nexiride2.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -39,7 +40,8 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
     onLogout: () -> Unit,
     onNavigateToMyBookings: () -> Unit = {},
-    onNavigateToNotifications: () -> Unit = {}
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToAdmin: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val displayBrightness by viewModel.brightnessState.collectAsStateWithLifecycle()
@@ -351,6 +353,21 @@ fun ProfileScreen(
                 RowDivider()
                 SettingsRow(Icons.Default.Info, PrimaryBlueLight.copy(.1f), PrimaryBlueLight,
                     "About NexiRide", "v1.0.0 · Legal") { showAboutDialog = true }
+            }
+
+            // ── Admin (allow-listed emails only) ──────────────────────────────
+            if (AdminConfig.isAdmin(user?.email)) {
+                Spacer(Modifier.height(10.dp))
+                SettingsSection(title = "ADMIN") {
+                    SettingsRow(
+                        icon = Icons.Default.AdminPanelSettings,
+                        iconBg = PrimaryBlue.copy(.1f),
+                        iconTint = PrimaryBlue,
+                        title = "Admin Console",
+                        subtitle = "Users, bookings & broadcasts",
+                        onClick = onNavigateToAdmin
+                    )
+                }
             }
 
             Spacer(Modifier.height(20.dp))

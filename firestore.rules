@@ -1,6 +1,20 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ─────────────────────────────────────────────────────────────
+    // Admin allow-list — keep in sync with AdminConfig.adminEmails
+    // in the Android app. Emails are compared case-insensitively.
+    // ─────────────────────────────────────────────────────────────
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in [
+          'admin@nexiride.com',
+          'kalebotchere@gmail.com'
+        ];
+    }
+
     // Dev-oriented: debug seed writes routes/cities/seats before any sign-in.
     // Replace route/city/seat write-all with Cloud Functions or admin-only rules for production.
     match /routes/{routeId} {
@@ -16,24 +30,37 @@ service cloud.firestore {
       allow write: if true;
     }
     match /bookings/{bookingId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      // Admins can list/read every booking; regular users only see their own.
+      allow list: if isAdmin();
+      allow get: if isAdmin()
+        || (request.auth != null && request.auth.uid == resource.data.userId);
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow update, delete: if isAdmin()
+        || (request.auth != null && request.auth.uid == resource.data.userId);
     }
     match /users/{userId} {
-      // Split read/write so first-time profile create is clearly allowed for the signed-in uid.
-      allow get, list: if request.auth != null && request.auth.uid == userId;
+      // Admins can list/read every user profile; owner keeps write access.
+      allow list: if isAdmin();
+      allow get: if isAdmin()
+        || (request.auth != null && request.auth.uid == userId);
       allow create: if request.auth != null && request.auth.uid == userId;
-      allow update, delete: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if isAdmin()
+        || (request.auth != null && request.auth.uid == userId);
       match /payment_methods/{pmId} {
-        allow get, list: if request.auth != null && request.auth.uid == userId;
-        allow create: if request.auth != null && request.auth.uid == userId;
-        allow update, delete: if request.auth != null && request.auth.uid == userId;
+        allow get, list: if isAdmin()
+          || (request.auth != null && request.auth.uid == userId);
+        allow create, update, delete: if request.auth != null && request.auth.uid == userId;
       }
     }
     match /notifications/{notifId} {
-      allow read, update: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      // Admins can list all notifications and broadcast to any user (create for others).
+      allow list: if isAdmin();
+      allow get: if isAdmin()
+        || (request.auth != null && request.auth.uid == resource.data.userId);
+      allow create: if isAdmin()
+        || (request.auth != null && request.auth.uid == request.resource.data.userId);
+      allow update, delete: if isAdmin()
+        || (request.auth != null && request.auth.uid == resource.data.userId);
     }
   }
 }

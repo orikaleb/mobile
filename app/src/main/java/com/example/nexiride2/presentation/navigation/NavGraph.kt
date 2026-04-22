@@ -14,6 +14,7 @@ import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavOptionsBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
+import com.example.nexiride2.presentation.admin.AdminScreen
 import com.example.nexiride2.presentation.auth.*
 import com.example.nexiride2.presentation.booking.*
 import com.example.nexiride2.presentation.home.*
@@ -43,6 +44,7 @@ sealed class Screen(val route: String) {
     object LiveTracking : Screen("live_tracking/{bookingId}") { fun createRoute(bookingId: String) = "live_tracking/$bookingId" }
     object Notifications : Screen("notifications")
     object Profile : Screen("profile")
+    object Admin : Screen("admin")
 }
 
 data class BottomNavItem(val route: String, val label: String, val selectedIcon: ImageVector, val unselectedIcon: ImageVector)
@@ -244,8 +246,14 @@ fun NexiRideNavHost(navController: NavHostController = rememberNavController()) 
                         navController.safeNavigate(Screen.Notifications.route) {
                             launchSingleTop = true
                         }
+                    },
+                    onNavigateToAdmin = {
+                        navController.safeNavigate(Screen.Admin.route) { launchSingleTop = true }
                     }
                 )
+            }
+            composable(Screen.Admin.route) {
+                AdminScreen(onBack = { navController.popBackStack() })
             }
         }
     }

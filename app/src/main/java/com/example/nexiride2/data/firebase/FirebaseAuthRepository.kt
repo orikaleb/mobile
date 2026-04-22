@@ -47,7 +47,9 @@ class FirebaseAuthRepository @Inject constructor(
                     .set(
                         mapOf(
                             "fullName" to name,
-                            "phone" to phone
+                            "phone" to phone,
+                            "email" to (user.email ?: email.trim()),
+                            "createdAt" to com.google.firebase.Timestamp.now()
                         ),
                         SetOptions.merge()
                     )

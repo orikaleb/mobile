@@ -26,7 +26,9 @@ data class SearchUiState(
     val passengers: Int = 1,
     val cities: List<String> = emptyList(),
     /** Fires once after a successful search so the host can open results. */
-    val navigateToResults: Boolean = false
+    val navigateToResults: Boolean = false,
+    /** One-shot message surfaced after resolving the user's GPS fix. */
+    val locationMessage: String? = null
 )
 
 @HiltViewModel
@@ -66,6 +68,77 @@ class SearchViewModel @Inject constructor(
 
     fun consumeNavigateToResults() {
         _uiState.value = _uiState.value.copy(navigateToResults = false)
+    }
+
+    /**
+     * Resolves a GPS fix into one of the supported cities. Matching order:
+     *
+     *  1. [detectedLocality] (a Geocoder result from the screen) compared to
+     *     the city list, exact first, then substring (e.g. "Greater Accra Region"
+     *     → "Accra").
+     *  2. Nearest supported city, but only if the great-circle distance is within
+     *     [CityCoordinates.MAX_MATCH_DISTANCE_KM]. Beyond that we refuse to guess
+     *     because it usually means the user is outside Ghana or on an emulator
+     *     with a default overseas location.
+     *
+     * [detectedAddress] is just for the user-facing message.
+     */
+    fun useCurrentLocation(
+        lat: Double,
+        lng: Double,
+        detectedLocality: String? = null,
+        detectedAddress: String? = null
+    ) {
+        // Reject fixes obviously outside Ghana — the emulator's default fix is in
+        // California and would otherwise map to some random city hundreds of km away.
+        if (!CityCoordinates.isInGhana(lat, lng)) {
+            _uiState.value = _uiState.value.copy(
+                locationMessage = "Your location (${fmt(lat)}, ${fmt(lng)}) is outside Ghana — " +
+                    "pick your origin city manually."
+            )
+            return
+        }
+
+        val exact = CityCoordinates.matchExact(detectedLocality)
+        val contains = exact ?: CityCoordinates.matchContains(detectedLocality)
+
+        if (contains != null) {
+            _uiState.value = _uiState.value.copy(
+                origin = contains,
+                locationMessage = buildString {
+                    append("Detected ")
+                    append(detectedAddress ?: contains)
+                    append(" • using $contains as origin")
+                }
+            )
+            return
+        }
+
+        val nearest = CityCoordinates.nearestWithDistance(lat, lng)
+        if (nearest == null) {
+            _uiState.value = _uiState.value.copy(
+                locationMessage = "Couldn't resolve your location."
+            )
+            return
+        }
+        if (nearest.distanceKm > CityCoordinates.MAX_MATCH_DISTANCE_KM) {
+            _uiState.value = _uiState.value.copy(
+                locationMessage = "No supported station within ${CityCoordinates.MAX_MATCH_DISTANCE_KM.toInt()} km " +
+                    "(${"%.0f".format(nearest.distanceKm)} km to ${nearest.city}). Pick manually."
+            )
+            return
+        }
+        _uiState.value = _uiState.value.copy(
+            origin = nearest.city,
+            locationMessage = "Using your location • nearest station: ${nearest.city} " +
+                "(${"%.0f".format(nearest.distanceKm)} km away)"
+        )
+    }
+
+    private fun fmt(v: Double): String = "%.3f".format(v)
+
+    fun clearLocationMessage() {
+        _uiState.value = _uiState.value.copy(locationMessage = null)
     }
 
     fun searchWithParams(origin: String, destination: String) {

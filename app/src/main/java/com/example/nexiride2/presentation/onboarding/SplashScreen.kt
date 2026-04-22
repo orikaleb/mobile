@@ -174,7 +174,8 @@ fun SplashScreen(onSplashComplete: () -> Unit) {
             Spacer(Modifier.height(28.dp))
 
             // App name with shimmer sweep
-            Box(contentAlignment = Alignment.Center) {
+            Box(contentAlignment = Alignment.Center)
+            {
                 // Base text
                 Text(
                     "NexiRide",

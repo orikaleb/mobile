@@ -40,7 +40,27 @@ class FirestoreUserRepository @Inject constructor(
         return try {
             val snap = userDoc(uid).get().await()
             if (!snap.exists()) {
+                // First read for this user: create a minimal profile doc so the admin
+                // can see them in /users. Best-effort — failures (rules / offline) are ignored.
+                runCatching {
+                    userDoc(uid).set(
+                        mapOf(
+                            "fullName" to base.name,
+                            "phone" to base.phone,
+                            "email" to base.email,
+                            "createdAt" to com.google.firebase.Timestamp.now(),
+                            "updatedAt" to isoNow()
+                        ),
+                        SetOptions.merge()
+                    ).await()
+                }
                 return Result.success(base)
+            }
+            // Backfill email if an older doc predates the field.
+            if (snap.getString("email").isNullOrBlank() && base.email.isNotBlank()) {
+                runCatching {
+                    userDoc(uid).set(mapOf("email" to base.email), SetOptions.merge()).await()
+                }
             }
             Result.success(
                 base.copy(
@@ -62,6 +82,9 @@ class FirestoreUserRepository @Inject constructor(
                 mapOf(
                     "fullName" to name,
                     "phone" to phone,
+                    // Firebase Auth email is the source of truth; persist it here
+                    // so the admin listing always has a populated email column.
+                    "email" to (email.ifBlank { authRepository.getCurrentUser()?.email.orEmpty() }),
                     "updatedAt" to isoNow()
                 ),
                 SetOptions.merge()
