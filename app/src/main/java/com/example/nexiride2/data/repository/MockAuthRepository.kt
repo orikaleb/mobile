@@ -4,11 +4,20 @@ import com.example.nexiride2.data.local.MockData
 import com.example.nexiride2.domain.model.User
 import com.example.nexiride2.domain.repository.AuthRepository
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 
 class MockAuthRepository(
     private val tokenStore: SecureTokenStore
 ) : AuthRepository {
-    private var loggedInUser: User? = if (tokenStore.getToken() != null) MockData.currentUser else null
+    private val userState: MutableStateFlow<User?> = MutableStateFlow(
+        if (tokenStore.getToken() != null) MockData.currentUser else null
+    )
+    private var loggedInUser: User?
+        get() = userState.value
+        set(value) { userState.value = value }
 
     override suspend fun login(email: String, password: String): Result<User> {
         delay(800)
@@ -37,4 +46,7 @@ class MockAuthRepository(
 
     override fun isLoggedIn() = tokenStore.getToken() != null
     override fun getCurrentUser() = loggedInUser
+
+    override fun observeCurrentUser(): Flow<User?> =
+        userState.asStateFlow().distinctUntilChanged { old, new -> old?.id == new?.id }
 }

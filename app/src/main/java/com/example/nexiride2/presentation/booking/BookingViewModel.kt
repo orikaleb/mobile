@@ -8,12 +8,15 @@ import com.example.nexiride2.domain.model.Passenger
 import com.example.nexiride2.domain.model.Seat
 import com.example.nexiride2.domain.model.SeatStatus
 import com.example.nexiride2.domain.model.User
+import com.example.nexiride2.domain.repository.AuthRepository
 import com.example.nexiride2.domain.repository.UserRepository
 import com.example.nexiride2.domain.repository.WalletRepository
 import com.example.nexiride2.domain.usecase.CreateBookingUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -37,13 +40,25 @@ data class BookingUiState(
 class BookingViewModel @Inject constructor(
     private val createBookingUseCase: CreateBookingUseCase,
     private val walletRepository: WalletRepository,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BookingUiState())
     val uiState = _uiState.asStateFlow()
 
     init {
-        loadCurrentUser()
+        // Wipe any in-progress booking (selected seats, cached user) when the
+        // account changes, and re-prefill the passenger form with the new user.
+        authRepository.observeCurrentUser()
+            .onEach { user ->
+                if (user == null) {
+                    _uiState.value = BookingUiState()
+                } else {
+                    _uiState.value = BookingUiState()
+                    loadCurrentUser()
+                }
+            }
+            .launchIn(viewModelScope)
     }
 
     fun loadCurrentUser() = viewModelScope.launch {

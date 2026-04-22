@@ -3,6 +3,7 @@ package com.example.nexiride2.presentation.mybookings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nexiride2.domain.model.Booking
+import com.example.nexiride2.domain.repository.AuthRepository
 import com.example.nexiride2.domain.repository.DownloadedTicket
 import com.example.nexiride2.domain.repository.DownloadedTicketRepository
 import com.example.nexiride2.domain.usecase.CancelBookingUseCase
@@ -12,7 +13,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -32,7 +35,8 @@ data class MyBookingsUiState(
 class MyBookingsViewModel @Inject constructor(
     private val getBookings: GetBookingsUseCase,
     private val cancelBooking: CancelBookingUseCase,
-    private val downloadedTicketRepository: DownloadedTicketRepository
+    private val downloadedTicketRepository: DownloadedTicketRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(MyBookingsUiState())
     val uiState = _uiState.asStateFlow()
@@ -42,7 +46,19 @@ class MyBookingsViewModel @Inject constructor(
             .map { list -> list.associateBy { it.bookingId } }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
-    init { loadBookings() }
+    init {
+        // Re-pull bookings whenever the signed-in account changes so we never
+        // serve the previous user's ticket list after a logout/login swap.
+        authRepository.observeCurrentUser()
+            .onEach { user ->
+                if (user == null) {
+                    _uiState.value = MyBookingsUiState(isLoading = false)
+                } else {
+                    loadBookings()
+                }
+            }
+            .launchIn(viewModelScope)
+    }
 
     fun loadBookings() = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)

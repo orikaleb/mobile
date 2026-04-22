@@ -7,6 +7,10 @@ import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -81,4 +85,19 @@ class FirebaseAuthRepository @Inject constructor(
     override fun isLoggedIn(): Boolean = auth.currentUser != null
 
     override fun getCurrentUser(): User? = auth.currentUser?.toUser()
+
+    /**
+     * Wraps [FirebaseAuth.addAuthStateListener] in a Flow so the UI can react to
+     * sign-in / sign-out / account switching without the caller polling. We
+     * deduplicate on uid so token refreshes (which also fire the listener)
+     * don't cause unnecessary downstream reloads.
+     */
+    override fun observeCurrentUser(): Flow<User?> = callbackFlow {
+        trySend(auth.currentUser?.toUser())
+        val listener = FirebaseAuth.AuthStateListener { fa ->
+            trySend(fa.currentUser?.toUser())
+        }
+        auth.addAuthStateListener(listener)
+        awaitClose { auth.removeAuthStateListener(listener) }
+    }.distinctUntilChanged { old, new -> old?.id == new?.id }
 }

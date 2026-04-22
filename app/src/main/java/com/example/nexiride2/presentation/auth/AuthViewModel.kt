@@ -7,6 +7,8 @@ import com.example.nexiride2.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,6 +28,20 @@ class AuthViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AuthUiState(isLoggedIn = authRepository.isLoggedIn(), user = authRepository.getCurrentUser()))
     val uiState = _uiState.asStateFlow()
+
+    init {
+        // Mirror the true Firebase auth state into the UI state so that any
+        // external change (logout from another device, token expiry, etc.) flips
+        // the nav gate correctly and downstream ViewModels can react too.
+        authRepository.observeCurrentUser()
+            .onEach { user ->
+                _uiState.value = _uiState.value.copy(
+                    user = user,
+                    isLoggedIn = user != null
+                )
+            }
+            .launchIn(viewModelScope)
+    }
 
     fun login(email: String, password: String) = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)

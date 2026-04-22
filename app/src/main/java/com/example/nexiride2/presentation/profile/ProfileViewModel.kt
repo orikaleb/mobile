@@ -5,12 +5,15 @@ import androidx.lifecycle.viewModelScope
 import com.example.nexiride2.data.preferences.AppBrightnessSettings
 import com.example.nexiride2.data.preferences.DisplayBrightnessState
 import com.example.nexiride2.domain.model.User
+import com.example.nexiride2.domain.repository.AuthRepository
 import com.example.nexiride2.domain.repository.UserRepository
 import com.example.nexiride2.domain.repository.WalletRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -30,6 +33,7 @@ data class ProfileUiState(
 class ProfileViewModel @Inject constructor(
     private val repo: UserRepository,
     private val walletRepository: WalletRepository,
+    private val authRepository: AuthRepository,
     appBrightnessSettings: AppBrightnessSettings
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ProfileUiState())
@@ -40,7 +44,18 @@ class ProfileViewModel @Inject constructor(
     private val brightnessSettings = appBrightnessSettings
 
     init {
-        load()
+        // Since this VM is scoped above the auth boundary it survives logout/login;
+        // re-pull profile whenever the signed-in identity changes so we never
+        // leave the previous user's name / email / photo on screen.
+        authRepository.observeCurrentUser()
+            .onEach { user ->
+                if (user == null) {
+                    _uiState.value = ProfileUiState(isLoading = false)
+                } else {
+                    load()
+                }
+            }
+            .launchIn(viewModelScope)
     }
 
     fun load() = viewModelScope.launch {
