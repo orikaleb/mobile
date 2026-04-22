@@ -48,11 +48,15 @@ fun BusDetailScreen(searchViewModel: SearchViewModel, routeId: String, onBack: (
                 }
             }
 
-            Column(Modifier.padding(20.dp)) {
+                Column(Modifier.padding(20.dp)) {
                 // Bus info
                 Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                     Column(Modifier.padding(16.dp)) {
                         Text("Bus Information", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                        route.bus.busNumber?.trim()?.takeIf { it.isNotEmpty() }?.let { num ->
+                            Spacer(Modifier.height(4.dp))
+                            Text("Bus no. $num", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
                         Spacer(Modifier.height(12.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                             InfoChip(Icons.Default.AirlineSeatReclineExtra, route.bus.busType)

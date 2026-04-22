@@ -17,11 +17,11 @@ object MockData {
     )
 
     val buses = listOf(
-        Bus("b1", "VIP Jeoun Transport", null, "VIP", 45, listOf("AC", "WiFi", "USB Charging", "Reclining Seats"), 4.5f),
-        Bus("b2", "STC Intercity", null, "Standard", 50, listOf("AC", "USB Charging"), 4.2f),
-        Bus("b3", "OA Travel & Tours", null, "Luxury", 30, listOf("AC", "WiFi", "USB Charging", "TV", "Snacks"), 4.8f),
-        Bus("b4", "Metro Mass Transit", null, "Standard", 60, listOf("AC"), 3.5f),
-        Bus("b5", "VVIP Transport", null, "VIP", 40, listOf("AC", "WiFi", "USB Charging", "Reclining Seats", "Blanket"), 4.6f)
+        Bus("b1", "VIP Jeoun Transport", null, "VIP", "GR-2011-21", 45, listOf("AC", "WiFi", "USB Charging", "Reclining Seats"), 4.5f),
+        Bus("b2", "STC Intercity", null, "Standard", "GR-8844-10", 50, listOf("AC", "USB Charging"), 4.2f),
+        Bus("b3", "OA Travel & Tours", null, "Luxury", "GR-5520-19", 30, listOf("AC", "WiFi", "USB Charging", "TV", "Snacks"), 4.8f),
+        Bus("b4", "Metro Mass Transit", null, "Standard", "GR-1102-15", 60, listOf("AC"), 3.5f),
+        Bus("b5", "VVIP Transport", null, "VIP", "GR-9901-32", 40, listOf("AC", "WiFi", "USB Charging", "Reclining Seats", "Blanket"), 4.6f)
     )
 
     /** Four daily departures per city pair: early, morning, afternoon, evening. */
@@ -34,7 +34,9 @@ object MockData {
                 if (from == to) continue
                 slotHours.forEachIndexed { slot, depH ->
                     idx++
-                    val bus = buses[(idx + slot) % buses.size]
+                    val baseBus = buses[(idx + slot) % buses.size]
+                    val busNumber = "GR-${String.format("%04d", idx % 10000)}-${listOf("A", "B", "C", "D", "E")[(idx + slot) % 5]}"
+                    val bus = baseBus.copy(busNumber = busNumber)
                     val depM = ((idx + slot) * 7) % 60
                     val dep = "%02d:%02d".format(depH, depM)
                     val hours = 2 + ((idx + slot) % 10)

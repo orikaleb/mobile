@@ -54,6 +54,20 @@ fun BookingCard(
                 Icon(Icons.Default.LocationOn, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                 Text("${booking.route.origin} → ${booking.route.destination}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }
+            val busNo = booking.route.bus.busNumber?.trim().orEmpty()
+            val type = booking.route.bus.busType
+            if (busNo.isNotEmpty() || type.isNotEmpty()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    buildString {
+                        if (busNo.isNotEmpty()) append("Bus $busNo")
+                        if (busNo.isNotEmpty() && type.isNotEmpty()) append(" · ")
+                        if (type.isNotEmpty()) append(type)
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Spacer(Modifier.height(8.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

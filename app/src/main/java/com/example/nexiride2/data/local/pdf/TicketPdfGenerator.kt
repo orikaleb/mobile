@@ -47,7 +47,12 @@ class TicketPdfGenerator(
             row("Route", "${booking.route.origin} → ${booking.route.destination}")
             row("Date", booking.route.date)
             row("Time", "${booking.route.departureTime} - ${booking.route.arrivalTime}")
-            row("Company", booking.route.bus.companyName)
+            row("Operator", booking.route.bus.companyName)
+            row(
+                "Bus number",
+                booking.route.bus.busNumber?.trim()?.takeIf { it.isNotEmpty() } ?: "—"
+            )
+            row("Bus type", booking.route.bus.busType)
             row("Seats", booking.seats.joinToString { it.number })
             row("Passengers", booking.passengers.joinToString { it.name })
             row("Paid with", booking.paymentMethod)

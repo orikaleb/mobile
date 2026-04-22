@@ -150,6 +150,17 @@ fun TicketDetailScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
                     )
+                    Spacer(Modifier.height(4.dp))
+                    val bn = booking.route.bus.busNumber?.trim().orEmpty()
+                    val type = booking.route.bus.busType
+                    Text(
+                        buildString {
+                            if (bn.isNotEmpty()) append("Bus $bn · ")
+                            append(type)
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
+                    )
                 }
             }
 
@@ -167,7 +178,12 @@ fun TicketDetailScreen(
                     DetailRow("Route", "${booking.route.origin} → ${booking.route.destination}")
                     DetailRow("Date", booking.route.date)
                     DetailRow("Time", "${booking.route.departureTime} - ${booking.route.arrivalTime}")
-                    DetailRow("Bus", booking.route.bus.companyName)
+                    DetailRow("Operator", booking.route.bus.companyName)
+                    DetailRow(
+                        "Bus number",
+                        booking.route.bus.busNumber?.trim()?.takeIf { it.isNotEmpty() } ?: "—"
+                    )
+                    DetailRow("Bus type", booking.route.bus.busType)
                     DetailRow("Seats", booking.seats.joinToString { it.number })
                     DetailRow("Passengers", booking.passengers.joinToString { it.name })
                     DetailRow("Paid with", booking.paymentMethod)
