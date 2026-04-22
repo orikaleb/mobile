@@ -45,11 +45,24 @@ class MyBookingsViewModel @Inject constructor(
     init { loadBookings() }
 
     fun loadBookings() = viewModelScope.launch {
-        _uiState.value = _uiState.value.copy(isLoading = true)
-        val up = getBookings.getUpcoming().getOrDefault(emptyList())
-        val past = getBookings.getPast().getOrDefault(emptyList())
-        val cancelled = getBookings.getCancelled().getOrDefault(emptyList())
-        _uiState.value = MyBookingsUiState(false, up, past, cancelled)
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+        getBookings.getGroupedBookings().fold(
+            onSuccess = { (up, past, cancelled) ->
+                _uiState.value = MyBookingsUiState(
+                    isLoading = false,
+                    upcoming = up,
+                    past = past,
+                    cancelled = cancelled,
+                    error = null
+                )
+            },
+            onFailure = { e ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    error = e.message ?: "Could not load bookings"
+                )
+            }
+        )
     }
 
     fun selectBooking(booking: Booking) { _uiState.value = _uiState.value.copy(selectedBooking = booking) }

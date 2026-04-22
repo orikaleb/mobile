@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">AppName</string>
-    <string name="google_maps_key">YOUR_GOOGLE_MAPS_API_KEY</string>
+    <!-- com.google.android.geo.API_KEY: set via resValue in app/build.gradle.kts from local.properties MAPS_API_KEY -->
 </resources>

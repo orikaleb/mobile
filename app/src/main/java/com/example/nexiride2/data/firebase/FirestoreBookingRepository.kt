@@ -36,17 +36,20 @@ class FirestoreBookingRepository @Inject constructor(
         return runCatching { gson.fromJson(json, Booking::class.java) }.getOrNull()
     }
 
-    private suspend fun allBookingsForUser(): List<Booking> {
-        val uid = currentUserId() ?: return emptyList()
-        return try {
+    private suspend fun allBookingsForUser(): Result<List<Booking>> {
+        val uid = currentUserId() ?: return Result.success(emptyList())
+        return runCatching {
             val snap = db.collection(FirestorePaths.BOOKINGS)
                 .whereEqualTo("userId", uid)
                 .get()
                 .await()
             snap.documents.mapNotNull { parseBooking(it.data) }
-        } catch (_: Exception) {
-            emptyList()
         }
+    }
+
+    override suspend fun getAllBookingsForCurrentUser(): Result<List<Booking>> {
+        delay(150)
+        return allBookingsForUser()
     }
 
     override suspend fun createBooking(
@@ -86,12 +89,21 @@ class FirestoreBookingRepository @Inject constructor(
                         .collection(FirestorePaths.SEATS).document(s.number)
                     val snap = tx.get(seatRef)
                     if (!snap.exists()) {
-                        throw IllegalStateException("Seat ${s.number} not found for this route.")
-                    }
-                    val status = (snap.getString("status") ?: "AVAILABLE").uppercase(Locale.US)
-                    val heldBy = snap.getString("bookingId")
-                    if (status != "AVAILABLE" || !heldBy.isNullOrBlank()) {
-                        throw IllegalStateException("Seat ${s.number} is no longer available.")
+                        val n = s.number.toIntOrNull() ?: 1
+                        tx.set(
+                            seatRef,
+                            mapOf(
+                                "status" to "AVAILABLE",
+                                "rowIdx" to ((n - 1) / 4 + 1).toLong(),
+                                "colIdx" to ((n - 1) % 4 + 1).toLong()
+                            )
+                        )
+                    } else {
+                        val status = (snap.getString("status") ?: "AVAILABLE").uppercase(Locale.US)
+                        val heldBy = snap.getString("bookingId")
+                        if (status != "AVAILABLE" || !heldBy.isNullOrBlank()) {
+                            throw IllegalStateException("Seat ${s.number} is no longer available.")
+                        }
                     }
                 }
                 tx.set(
@@ -133,30 +145,18 @@ class FirestoreBookingRepository @Inject constructor(
     }
 
     override suspend fun getUpcomingBookings(): Result<List<Booking>> {
-        return try {
-            delay(150)
-            Result.success(allBookingsForUser().filter { it.status == BookingStatus.CONFIRMED })
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        delay(150)
+        return allBookingsForUser().map { list -> list.filter { it.status == BookingStatus.CONFIRMED } }
     }
 
     override suspend fun getPastBookings(): Result<List<Booking>> {
-        return try {
-            delay(150)
-            Result.success(allBookingsForUser().filter { it.status == BookingStatus.COMPLETED })
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        delay(150)
+        return allBookingsForUser().map { list -> list.filter { it.status == BookingStatus.COMPLETED } }
     }
 
     override suspend fun getCancelledBookings(): Result<List<Booking>> {
-        return try {
-            delay(150)
-            Result.success(allBookingsForUser().filter { it.status == BookingStatus.CANCELLED })
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        delay(150)
+        return allBookingsForUser().map { list -> list.filter { it.status == BookingStatus.CANCELLED } }
     }
 
     override suspend fun getBookingById(bookingId: String): Result<Booking> {
@@ -214,13 +214,10 @@ class FirestoreBookingRepository @Inject constructor(
     }
 
     override suspend fun getRecentRouteIds(): List<String> {
-        return try {
-            allBookingsForUser()
-                .sortedByDescending { it.bookingDate }
-                .take(3)
-                .map { it.route.id }
-        } catch (_: Exception) {
-            emptyList()
-        }
+        return allBookingsForUser().getOrNull()
+            .orEmpty()
+            .sortedByDescending { it.bookingDate }
+            .take(3)
+            .map { it.route.id }
     }
 }

@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "000000000001",
-    "project_id": "nexiride2-placeholder",
-    "storage_bucket": "nexiride2-placeholder.appspot.com"
+    "project_number": "391347063321",
+    "project_id": "nextride2-463c4",
+    "storage_bucket": "nextride2-463c4.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:000000000001:android:0000000000000000000001",
+        "mobilesdk_app_id": "1:391347063321:android:882d92aefac2961dbb7888",
         "android_client_info": {
           "package_name": "com.example.nexiride2"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyPlaceholderReplaceWithYourFirebaseAndroidKey"
+          "current_key": "AIzaSyB1dGneezovwsSeMHTnw4H6t1sQw9cQXXk"
         }
       ],
       "services": {

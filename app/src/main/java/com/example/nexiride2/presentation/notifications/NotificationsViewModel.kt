@@ -28,7 +28,15 @@ class NotificationsViewModel @Inject constructor(
     fun load() = viewModelScope.launch {
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         repo.getNotifications().fold(
-            onSuccess = { _uiState.value = NotificationsUiState(false, it, repo.getUnreadCount()) },
+            onSuccess = { list ->
+                val unread = list.count { !it.isRead }
+                _uiState.value = NotificationsUiState(
+                    isLoading = false,
+                    notifications = list,
+                    unreadCount = unread,
+                    error = null
+                )
+            },
             onFailure = { _uiState.value = NotificationsUiState(false, error = it.message) }
         )
     }

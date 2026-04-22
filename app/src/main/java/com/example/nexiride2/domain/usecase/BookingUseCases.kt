@@ -13,6 +13,15 @@ class CreateBookingUseCase(private val bookingRepository: BookingRepository) {
 }
 
 class GetBookingsUseCase(private val bookingRepository: BookingRepository) {
+    /** Single remote fetch, then filter locally for the three tabs. */
+    suspend fun getGroupedBookings() = bookingRepository.getAllBookingsForCurrentUser().map { all ->
+        Triple(
+            all.filter { it.status == BookingStatus.CONFIRMED },
+            all.filter { it.status == BookingStatus.COMPLETED },
+            all.filter { it.status == BookingStatus.CANCELLED }
+        )
+    }
+
     suspend fun getUpcoming() = bookingRepository.getUpcomingBookings()
     suspend fun getPast() = bookingRepository.getPastBookings()
     suspend fun getCancelled() = bookingRepository.getCancelledBookings()

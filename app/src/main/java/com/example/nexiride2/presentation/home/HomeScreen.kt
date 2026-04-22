@@ -83,7 +83,7 @@ fun HomeScreen(
         Text("Popular Cities", Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(uiState.cities.take(6)) { city ->
+            items(uiState.cities) { city ->
                 SuggestionChip(onClick = { fromCity = city }, label = { Text(city) },
                     icon = { Icon(Icons.Default.LocationCity, null, Modifier.size(16.dp)) })
             }

@@ -1,9 +1,15 @@
 package com.example.nexiride2.presentation.search
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,6 +18,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.nexiride2.presentation.sensor.ShakeToRefresh
 import com.example.nexiride2.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -19,8 +29,46 @@ fun SearchScreen(searchViewModel: SearchViewModel, onSearchResults: () -> Unit) 
     val uiState by searchViewModel.uiState.collectAsState()
     var expanded1 by remember { mutableStateOf(false) }
     var expanded2 by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val startOfTodayUtc = remember {
+        Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+    if (showDatePicker) {
+        val initialMillis = runCatching {
+            SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+                .parse(uiState.date)?.time
+        }.getOrNull() ?: startOfTodayUtc
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { ms ->
+                            val f = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
+                            searchViewModel.updateDate(f.format(java.util.Date(ms)))
+                        }
+                        showDatePicker = false
+                    }
+                ) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } }
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
 
-    LaunchedEffect(uiState.results) { if (uiState.results.isNotEmpty()) onSearchResults() }
+    LaunchedEffect(uiState.navigateToResults) {
+        if (uiState.navigateToResults) {
+            onSearchResults()
+            searchViewModel.consumeNavigateToResults()
+        }
+    }
 
     ShakeToRefresh(
         enabled = uiState.origin.isNotBlank() && uiState.destination.isNotBlank() && !uiState.isLoading,
@@ -68,9 +116,16 @@ fun SearchScreen(searchViewModel: SearchViewModel, onSearchResults: () -> Unit) 
 
             // Date & Passengers
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = uiState.date, onValueChange = { searchViewModel.updateDate(it) },
-                    label = { Text("Date") }, leadingIcon = { Icon(Icons.Default.CalendarToday, null) },
-                    modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp), singleLine = true)
+                OutlinedTextField(
+                    value = uiState.date,
+                    onValueChange = { },
+                    readOnly = true,
+                    label = { Text("Travel date") },
+                    leadingIcon = { Icon(Icons.Default.CalendarToday, null) },
+                    modifier = Modifier.weight(1f).clickable { showDatePicker = true },
+                    shape = RoundedCornerShape(12.dp), singleLine = true,
+                    trailingIcon = { IconButton(onClick = { showDatePicker = true }) { Icon(Icons.Default.DateRange, null) } }
+                )
 
                 OutlinedTextField(value = uiState.passengers.toString(),
                     onValueChange = { it.toIntOrNull()?.let { p -> searchViewModel.updatePassengers(p.coerceIn(1, 10)) } },
@@ -98,8 +153,11 @@ fun SearchScreen(searchViewModel: SearchViewModel, onSearchResults: () -> Unit) 
             // Quick routes
             Text("Quick Search", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
-            listOf("Accra" to "Kumasi", "Accra" to "Cape Coast", "Kumasi" to "Tamale", "Accra" to "Tamale").forEach { (from, to) ->
-                Card(onClick = { searchViewModel.updateOrigin(from); searchViewModel.updateDestination(to); searchViewModel.search() },
+            listOf(
+                "Accra" to "Kumasi", "Accra" to "Cape Coast", "Kumasi" to "Tamale", "Accra" to "Tamale",
+                "Accra" to "Sunyani", "Accra" to "Ho", "Kumasi" to "Cape Coast", "Accra" to "Wa"
+            ).forEach { (from, to) ->
+                Card(onClick = { searchViewModel.searchWithParams(from, to) },
                     modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), shape = RoundedCornerShape(10.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {

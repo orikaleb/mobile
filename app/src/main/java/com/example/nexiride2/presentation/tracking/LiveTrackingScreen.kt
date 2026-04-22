@@ -32,32 +32,6 @@ import com.example.nexiride2.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
-// ── Realistic Accra → Kumasi route waypoints (N1 / N6 highway) ───────────────
-private val routeWaypoints = listOf(
-    LatLng(5.6037, -0.1870),   // Accra
-    LatLng(5.6420, -0.2310),   // Achimota
-    LatLng(5.7200, -0.3050),   // Ofankor
-    LatLng(5.8080, -0.3617),   // Nsawam
-    LatLng(5.9200, -0.4100),   // Aburi Hills
-    LatLng(6.0427, -0.4531),   // Suhum
-    LatLng(6.1300, -0.5200),   // Kukurantumi
-    LatLng(6.1892, -0.5731),   // Apedwa
-    LatLng(6.2766, -0.6498),   // Bunso Junction
-    LatLng(6.3500, -0.7000),   // Anyinam
-    LatLng(6.5576, -0.7617),   // Nkawkaw
-    LatLng(6.6100, -0.9800),   // Juaso
-    LatLng(6.6247, -1.2272),   // Konongo
-    LatLng(6.6400, -1.4500),   // Obuasi Junction
-    LatLng(6.6885, -1.6244)    // Kumasi
-)
-
-private val stopNames = listOf(
-    "Accra (Tudu)", "Achimota", "Ofankor", "Nsawam",
-    "Aburi Hills", "Suhum", "Kukurantumi", "Apedwa",
-    "Bunso Jct", "Anyinam", "Nkawkaw", "Juaso",
-    "Konongo", "Obuasi Jct", "Kumasi (Kejetia)"
-)
-
 // Interpolate smoothly between all waypoints → produces ~300 fine-grained points
 private fun buildFullPath(waypoints: List<LatLng>, steps: Int = 20): List<LatLng> {
     val result = mutableListOf<LatLng>()
@@ -78,18 +52,29 @@ private fun buildFullPath(waypoints: List<LatLng>, steps: Int = 20): List<LatLng
 fun LiveTrackingScreen(
     title: String,
     onBack: () -> Unit,
-    viewModel: LiveTrackingViewModel
+    viewModel: LiveTrackingViewModel,
+    /** Shown on map polyline; resolved to a plausible trunk route. */
+    origin: String = "",
+    destination: String = ""
 ) {
     val context = LocalContext.current
     val userLatLng by viewModel.userLocation.collectAsState()
+    var locationPermissionGranted by remember { mutableStateOf(false) }
+    val routePath = remember(origin, destination) { IntercityRouteGeometry.forBooking(origin, destination) }
+    val routeWaypoints = routePath.waypoints
+    val stopNames = routePath.stopLabels
+
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
-        if (grants.values.any { it }) viewModel.startLocationUpdates()
+        val ok = grants.values.any { it }
+        locationPermissionGranted = ok
+        if (ok) viewModel.startLocationUpdates()
     }
     LaunchedEffect(Unit) {
         val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
         val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        locationPermissionGranted = fine || coarse
         if (fine || coarse) viewModel.startLocationUpdates()
         else {
             permissionLauncher.launch(
@@ -98,8 +83,9 @@ fun LiveTrackingScreen(
         }
     }
 
-    val fullPath  = remember { buildFullPath(routeWaypoints) }
+    val fullPath  = remember(routeWaypoints) { buildFullPath(routeWaypoints) }
     val totalPts  = fullPath.size
+    val totalKm   = remember(routeWaypoints) { polylineLengthKm(routeWaypoints) }
 
     // Progress: 0f = origin, 1f = destination
     // Start at 15% to show the bus already on its way
@@ -125,10 +111,9 @@ fun LiveTrackingScreen(
     // Nearest named stop
     val waypointIdx = ((progress * (routeWaypoints.size - 1)).toInt()).coerceIn(0, routeWaypoints.size - 2)
     val nearestStop = stopNames.getOrElse(waypointIdx) { "" }
-    val nextStop    = stopNames.getOrElse(waypointIdx + 1) { "Kumasi" }
+    val nextStop    = stopNames.getOrElse(waypointIdx + 1) { stopNames.lastOrNull() ?: "Arrival" }
 
     // Stats
-    val totalKm      = 250
     val coveredKm    = (progress * totalKm).roundToInt()
     val remainingKm  = totalKm - coveredKm
     val etaMinutes   = (remainingKm / 0.833f).roundToInt()   // ~50 km/h avg
@@ -160,10 +145,13 @@ fun LiveTrackingScreen(
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraState,
-            properties = MapProperties(isTrafficEnabled = true),
+            properties = MapProperties(
+                isTrafficEnabled = true,
+                isMyLocationEnabled = locationPermissionGranted
+            ),
             uiSettings = MapUiSettings(
-                zoomControlsEnabled = false,
-                myLocationButtonEnabled = false,
+                zoomControlsEnabled = true,
+                myLocationButtonEnabled = locationPermissionGranted,
                 mapToolbarEnabled = false
             )
         ) {

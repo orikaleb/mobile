@@ -7,6 +7,8 @@ import com.example.nexiride2.domain.model.Booking
 import com.example.nexiride2.domain.model.Passenger
 import com.example.nexiride2.domain.model.Seat
 import com.example.nexiride2.domain.model.SeatStatus
+import com.example.nexiride2.domain.model.User
+import com.example.nexiride2.domain.repository.UserRepository
 import com.example.nexiride2.domain.repository.WalletRepository
 import com.example.nexiride2.domain.usecase.CreateBookingUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,19 +28,35 @@ data class BookingUiState(
     val isLoading: Boolean = false,
     val booking: Booking? = null,
     val error: String? = null,
-    val routeId: String = ""
+    val routeId: String = "",
+    /** Signed-in user; used to prefill passenger 1 on the details screen. */
+    val currentUser: User? = null
 )
 
 @HiltViewModel
 class BookingViewModel @Inject constructor(
     private val createBookingUseCase: CreateBookingUseCase,
-    private val walletRepository: WalletRepository
+    private val walletRepository: WalletRepository,
+    private val userRepository: UserRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(BookingUiState())
     val uiState = _uiState.asStateFlow()
 
+    init {
+        loadCurrentUser()
+    }
+
+    fun loadCurrentUser() = viewModelScope.launch {
+        userRepository.getUser().onSuccess { user ->
+            _uiState.value = _uiState.value.copy(currentUser = user)
+        }
+    }
+
     fun setRouteId(id: String) {
-        _uiState.value = _uiState.value.copy(routeId = id)
+        // Start a fresh flow: clear prior selection/booking state but keep the cached user.
+        val user = _uiState.value.currentUser
+        _uiState.value = BookingUiState(routeId = id, currentUser = user)
+        if (user == null) loadCurrentUser()
     }
 
     fun setTripTotalGhs(total: Double) {

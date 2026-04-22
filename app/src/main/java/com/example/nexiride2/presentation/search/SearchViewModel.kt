@@ -24,7 +24,9 @@ data class SearchUiState(
     val destination: String = "",
     val date: String = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()),
     val passengers: Int = 1,
-    val cities: List<String> = emptyList()
+    val cities: List<String> = emptyList(),
+    /** Fires once after a successful search so the host can open results. */
+    val navigateToResults: Boolean = false
 )
 
 @HiltViewModel
@@ -43,7 +45,7 @@ class SearchViewModel @Inject constructor(
     fun updatePassengers(p: Int) { _uiState.value = _uiState.value.copy(passengers = p) }
 
     fun search() = viewModelScope.launch {
-        _uiState.value = _uiState.value.copy(isLoading = true, error = null, cacheHint = null)
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null, cacheHint = null, navigateToResults = false)
         searchUseCase(_uiState.value.origin, _uiState.value.destination, _uiState.value.date, _uiState.value.passengers).fold(
             onSuccess = { payload ->
                 _uiState.value = _uiState.value.copy(
@@ -54,15 +56,21 @@ class SearchViewModel @Inject constructor(
                         "Showing saved results (device offline or network unavailable)."
                     } else {
                         null
-                    }
+                    },
+                    navigateToResults = true
                 )
             },
             onFailure = { _uiState.value = _uiState.value.copy(isLoading = false, error = it.message) }
         )
     }
 
+    fun consumeNavigateToResults() {
+        _uiState.value = _uiState.value.copy(navigateToResults = false)
+    }
+
     fun searchWithParams(origin: String, destination: String) {
-        _uiState.value = _uiState.value.copy(origin = origin, destination = destination)
+        val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
+        _uiState.value = _uiState.value.copy(origin = origin, destination = destination, date = today)
         search()
     }
 
@@ -81,8 +89,9 @@ class SearchViewModel @Inject constructor(
     }
 
     fun selectRoute(routeId: String) = viewModelScope.launch {
+        val travelDate = _uiState.value.date
         busRepository.getRouteById(routeId).onSuccess { route ->
-            _uiState.value = _uiState.value.copy(selectedRoute = route)
+            _uiState.value = _uiState.value.copy(selectedRoute = route.copy(date = travelDate))
         }
     }
 

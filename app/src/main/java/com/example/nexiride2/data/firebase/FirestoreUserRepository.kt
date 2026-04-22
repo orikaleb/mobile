@@ -46,8 +46,9 @@ class FirestoreUserRepository @Inject constructor(
                     profilePhotoUrl = snap.getString("avatarUrl")
                 )
             )
-        } catch (e: Exception) {
-            Result.failure(e)
+        } catch (_: Exception) {
+            // Profile doc unreadable (rules / offline): fall back to Auth-provided user.
+            Result.success(base)
         }
     }
 

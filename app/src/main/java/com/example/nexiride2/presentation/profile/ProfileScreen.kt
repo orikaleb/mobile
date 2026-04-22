@@ -30,7 +30,9 @@ import com.example.nexiride2.ui.theme.*
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onNavigateToMyBookings: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val user = uiState.user
@@ -206,19 +208,7 @@ fun ProfileScreen(
                         }
                     }
 
-                    Spacer(Modifier.height(20.dp))
-
-                    // Stats strip
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly) {
-                        StatPill(value = "12", label = "Trips")
-                        Box(Modifier.width(1.dp).height(32.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant))
-                        StatPill(value = "5", label = "Cities")
-                        Box(Modifier.width(1.dp).height(32.dp)
-                            .background(MaterialTheme.colorScheme.outlineVariant))
-                        StatPill(value = "GHS 960", label = "Spent")
-                    }
+                    Spacer(Modifier.height(16.dp))
                 }
             }
 
@@ -247,13 +237,13 @@ fun ProfileScreen(
             // ── Trips section ─────────────────────────────────────────────────
             SettingsSection(title = "ACTIVITY") {
                 SettingsRow(Icons.Default.ConfirmationNumber, PrimaryBlue.copy(.1f), PrimaryBlue,
-                    "My Bookings", "View all your tickets") { showComingSoon = "My Bookings" }
+                    "My Bookings", "View all your tickets", onNavigateToMyBookings)
                 RowDivider()
                 SettingsRow(Icons.Default.Route, Color(0xFF7C3AED).copy(.1f), Color(0xFF7C3AED),
                     "Saved Routes", "Quick-access favourite routes") { showComingSoon = "Saved Routes" }
                 RowDivider()
                 SettingsRow(Icons.Default.History, SecondaryOrange.copy(.1f), SecondaryOrange,
-                    "Travel History", "Past trips & receipts") { showComingSoon = "Travel History" }
+                    "Travel History", "Past trips & receipts", onNavigateToMyBookings)
             }
 
             Spacer(Modifier.height(10.dp))
@@ -261,7 +251,7 @@ fun ProfileScreen(
             // ── Preferences section ───────────────────────────────────────────
             SettingsSection(title = "PREFERENCES") {
                 SettingsRow(Icons.Default.Notifications, StatusWarning.copy(.12f), StatusWarning,
-                    "Notifications", "Push alerts & reminders") { showComingSoon = "Notifications" }
+                    "Notifications", "Alerts & trip updates", onNavigateToNotifications)
                 RowDivider()
                 SettingsRow(Icons.Default.Language, StatusInfo.copy(.12f), StatusInfo,
                     "Language", "English (Ghana)") { showComingSoon = "Language" }
@@ -512,14 +502,3 @@ private fun WalletTopUpCard(balanceGhs: Double?, onAddFunds: (String) -> Unit) {
     }
 }
 
-// ── Stat pill ─────────────────────────────────────────────────────────────────
-
-@Composable
-private fun StatPill(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold,
-            color = MaterialTheme.colorScheme.onSurface)
-        Text(label, style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}

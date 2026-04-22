@@ -20,6 +20,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
+        // Must match one client’s package_name in app/google-services.json.
         applicationId = "com.example.nexiride2"
         minSdk = 24
         targetSdk = 34
@@ -27,6 +28,10 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
+        // Google Maps SDK for Android: enable the API + restrict key in Google Cloud Console
+        val mapsKey = (localProperties.getProperty("MAPS_API_KEY") ?: "")
+            .replace("\"", "")
+        manifestPlaceholders["MAPS_API_KEY"] = mapsKey
     }
 
     buildTypes {

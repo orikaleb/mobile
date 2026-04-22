@@ -7,9 +7,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import com.example.nexiride2.ui.components.BookingCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -19,9 +22,30 @@ fun MyBookingsScreen(viewModel: MyBookingsViewModel = hiltViewModel(), onBooking
     val downloaded by viewModel.downloadedTickets.collectAsState()
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Upcoming", "Past", "Cancelled")
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.loadBookings()
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
 
     Scaffold(topBar = { TopAppBar(title = { Text("My Bookings", fontWeight = FontWeight.Bold) }) }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
+            uiState.error?.let { err ->
+                Card(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(err, color = MaterialTheme.colorScheme.onErrorContainer)
+                        TextButton(onClick = { viewModel.loadBookings() }) { Text("Retry") }
+                    }
+                }
+            }
             TabRow(selectedTabIndex = selectedTab) {
                 tabs.forEachIndexed { index, title -> Tab(selected = selectedTab == index, onClick = { selectedTab = index }, text = { Text(title) }) }
             }

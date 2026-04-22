@@ -21,22 +21,25 @@ object FirestoreSeed {
         runCatching {
             val probe = db.collection(FirestorePaths.ROUTES).limit(1).get().await()
             if (probe.isEmpty) {
-                val batch = db.batch()
-                MockData.routes.forEach { route ->
-                    val ref = db.collection(FirestorePaths.ROUTES).document(route.id)
-                    batch.set(
-                        ref,
-                        mapOf(
-                            "id" to route.id,
-                            "origin" to route.origin,
-                            "destination" to route.destination,
-                            "date" to route.date,
-                            "availableSeats" to route.availableSeats,
-                            "routeJson" to gson.toJson(route)
+                // Firestore batch max 500 ops — one set per route (all city pairs).
+                MockData.routes.chunked(400).forEach { chunk ->
+                    val batch = db.batch()
+                    chunk.forEach { route ->
+                        val ref = db.collection(FirestorePaths.ROUTES).document(route.id)
+                        batch.set(
+                            ref,
+                            mapOf(
+                                "id" to route.id,
+                                "origin" to route.origin,
+                                "destination" to route.destination,
+                                "date" to route.date,
+                                "availableSeats" to route.availableSeats,
+                                "routeJson" to gson.toJson(route)
+                            )
                         )
-                    )
+                    }
+                    batch.commit().await()
                 }
-                batch.commit().await()
             }
         }
 
@@ -52,28 +55,6 @@ object FirestoreSeed {
             }
         }
 
-        runCatching {
-            for (route in MockData.routes) {
-                val seatsCol = db.collection(FirestorePaths.ROUTES).document(route.id)
-                    .collection(FirestorePaths.SEATS)
-                val first = seatsCol.limit(1).get().await()
-                if (first.isEmpty) {
-                    val batch = db.batch()
-                    val total = route.bus.totalSeats
-                    for (n in 1..total) {
-                        val doc = seatsCol.document(n.toString())
-                        batch.set(
-                            doc,
-                            mapOf(
-                                "status" to "AVAILABLE",
-                                "rowIdx" to (n - 1) / 4 + 1,
-                                "colIdx" to (n - 1) % 4 + 1
-                            )
-                        )
-                    }
-                    batch.commit().await()
-                }
-            }
-        }
+        // Seat subdocs are created on first booking (see FirestoreBookingRepository) or read as mock when empty.
     }
 }

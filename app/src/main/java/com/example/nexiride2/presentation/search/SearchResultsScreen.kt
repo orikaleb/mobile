@@ -20,6 +20,7 @@ import com.example.nexiride2.ui.components.SkeletonBusCard
 @Composable
 fun SearchResultsScreen(searchViewModel: SearchViewModel, onBack: () -> Unit, onRouteSelected: (String) -> Unit) {
     val uiState by searchViewModel.uiState.collectAsState()
+    LaunchedEffect(Unit) { searchViewModel.consumeNavigateToResults() }
     var showFilter by remember { mutableStateOf(false) }
     var priceRange by remember { mutableStateOf(20f..500f) }
     var timeFilter by remember { mutableStateOf("Any") }

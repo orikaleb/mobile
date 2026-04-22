@@ -23,6 +23,11 @@ class FirestoreBusRepository @Inject constructor(
         return runCatching { gson.fromJson(json, Route::class.java) }.getOrNull()
     }
 
+    /** Firestore whereEqualTo is case-sensitive; align with city names in documents. */
+    private fun titleCaseCity(raw: String): String =
+        raw.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+            .joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }
+
     suspend fun searchRoutes(
         origin: String,
         destination: String,
@@ -31,16 +36,30 @@ class FirestoreBusRepository @Inject constructor(
     ): Result<RouteSearchResult> {
         return try {
             delay(120)
-            val snap = db.collection(FirestorePaths.ROUTES)
-                .whereEqualTo("origin", origin.trim())
-                .get()
-                .await()
-            val routes = snap.documents.mapNotNull { parseRoute(it.data) }
-                .filter {
-                    it.destination.equals(destination, ignoreCase = true) &&
-                        it.date == date &&
-                        it.availableSeats >= passengers
-                }
+            val originTrim = titleCaseCity(origin)
+            val destTrim = titleCaseCity(destination)
+            val remote = runCatching {
+                val snap = db.collection(FirestorePaths.ROUTES)
+                    .whereEqualTo("origin", originTrim)
+                    .get()
+                    .await()
+                snap.documents.mapNotNull { parseRoute(it.data) }
+                    .filter {
+                        it.origin.equals(originTrim, ignoreCase = true) &&
+                            it.destination.equals(destTrim, ignoreCase = true) &&
+                            it.availableSeats >= passengers
+                    }
+            }.getOrDefault(emptyList())
+            // Also use the bundled inventory so every city pair + any day works.
+            val local = MockData.routes.filter {
+                it.origin.equals(originTrim, ignoreCase = true) &&
+                    it.destination.equals(destTrim, ignoreCase = true) &&
+                    it.availableSeats >= passengers
+            }
+            val candidates = (remote + local).distinctBy { it.id }
+            if (candidates.isEmpty()) return Result.success(RouteSearchResult(emptyList(), fromCache = false))
+            val routes = candidates.map { it.copy(date = date) }
+                .sortedBy { it.departureTime }
             Result.success(RouteSearchResult(routes, fromCache = false))
         } catch (e: Exception) {
             Result.failure(e)
@@ -50,8 +69,12 @@ class FirestoreBusRepository @Inject constructor(
     suspend fun getRouteById(routeId: String): Result<Route> {
         return try {
             delay(80)
-            val doc = db.collection(FirestorePaths.ROUTES).document(routeId).get().await()
-            val route = parseRoute(doc.data) ?: return Result.failure(Exception("Route not found"))
+            val doc = runCatching {
+                db.collection(FirestorePaths.ROUTES).document(routeId).get().await()
+            }.getOrNull()
+            val remote = doc?.let { parseRoute(it.data) }
+            val route = remote ?: MockData.routes.find { it.id == routeId }
+                ?: return Result.failure(Exception("Route not found"))
             Result.success(route)
         } catch (e: Exception) {
             Result.failure(e)
@@ -93,37 +116,41 @@ class FirestoreBusRepository @Inject constructor(
     suspend fun getPopularRoutes(): Result<List<Route>> {
         return try {
             delay(100)
-            val snap = db.collection(FirestorePaths.ROUTES).get().await()
-            val routes = snap.documents.mapNotNull { parseRoute(it.data) }.sortedBy { it.id }
-            Result.success(routes.take(4))
+            val remote = runCatching {
+                db.collection(FirestorePaths.ROUTES).limit(40).get().await()
+                    .documents.mapNotNull { parseRoute(it.data) }
+            }.getOrDefault(emptyList())
+            val pool = (remote + MockData.routes).distinctBy { "${it.origin}->${it.destination}" }
+            Result.success(pool.take(6))
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
     suspend fun getRoutesByDestination(destination: String): Result<List<Route>> {
-        val dest = destination.trim()
+        val dest = titleCaseCity(destination)
         if (dest.isEmpty()) return Result.success(emptyList())
         return try {
             delay(80)
-            val snap = db.collection(FirestorePaths.ROUTES)
-                .whereEqualTo("destination", dest)
-                .get()
-                .await()
-            val routes = snap.documents.mapNotNull { parseRoute(it.data) }.distinctBy { it.id }
-            Result.success(routes)
+            val remote = runCatching {
+                db.collection(FirestorePaths.ROUTES)
+                    .whereEqualTo("destination", dest)
+                    .get()
+                    .await()
+                    .documents.mapNotNull { parseRoute(it.data) }
+            }.getOrDefault(emptyList())
+            val local = MockData.routes.filter { it.destination.equals(dest, ignoreCase = true) }
+            Result.success((remote + local).distinctBy { it.id })
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
     suspend fun getAvailableCities(): List<String> {
-        return try {
-            val snap = db.collection(FirestorePaths.CITIES).get().await()
-            val names = snap.documents.mapNotNull { it.getString("name") }.distinct().sorted()
-            names.takeIf { it.isNotEmpty() } ?: MockData.cities
-        } catch (_: Exception) {
-            MockData.cities
-        }
+        val remote = runCatching {
+            db.collection(FirestorePaths.CITIES).get().await()
+                .documents.mapNotNull { it.getString("name") }
+        }.getOrDefault(emptyList())
+        return (remote + MockData.cities).distinct().sorted()
     }
 }

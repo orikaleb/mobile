@@ -20,6 +20,11 @@ class MockBookingRepository : BookingRepository {
         return Result.success(booking)
     }
 
+    override suspend fun getAllBookingsForCurrentUser(): Result<List<Booking>> {
+        delay(100)
+        return Result.success(MockData.bookings.toList())
+    }
+
     override suspend fun getUpcomingBookings(): Result<List<Booking>> {
         delay(300); return Result.success(MockData.bookings.filter { it.status == BookingStatus.CONFIRMED })
     }
@@ -41,5 +46,5 @@ class MockBookingRepository : BookingRepository {
         MockData.bookings[idx] = cancelled
         return Result.success(cancelled)
     }
-    override suspend fun getRecentRouteIds() = listOf("r1", "r4", "r3")
+    override suspend fun getRecentRouteIds() = MockData.routes.take(3).map { it.id }
 }

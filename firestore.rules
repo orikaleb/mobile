@@ -21,9 +21,14 @@ service cloud.firestore {
       allow update, delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Split read/write so first-time profile create is clearly allowed for the signed-in uid.
+      allow get, list: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
       match /payment_methods/{pmId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow get, list: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow update, delete: if request.auth != null && request.auth.uid == userId;
       }
     }
     match /notifications/{notifId} {

@@ -186,7 +186,10 @@ fun NexiRideNavHost(navController: NavHostController = rememberNavController()) 
             composable(Screen.Review.route) {
                 ReviewScreen(searchViewModel.uiState.collectAsState().value.selectedRoute, bookingViewModel,
                     onBack = { navController.popBackStack() },
-                    onPaymentSuccess = { navController.navigate(Screen.MyBookings.route) { popUpTo(Screen.Home.route) } })
+                    onPaymentSuccess = {
+                        myBookingsViewModel.loadBookings()
+                        navController.navigate(Screen.MyBookings.route) { popUpTo(Screen.Home.route) }
+                    })
             }
             composable(Screen.MyBookings.route) {
                 MyBookingsScreen(myBookingsViewModel) { bookingId ->
@@ -206,18 +209,33 @@ fun NexiRideNavHost(navController: NavHostController = rememberNavController()) 
                 LiveTrackingScreen(
                     title = booking?.let { "${it.route.origin} → ${it.route.destination}" } ?: "Live Tracking",
                     onBack = { navController.popBackStack() },
-                    viewModel = liveTrackingViewModel
+                    viewModel = liveTrackingViewModel,
+                    origin = booking?.route?.origin.orEmpty(),
+                    destination = booking?.route?.destination.orEmpty()
                 )
             }
             composable(Screen.Notifications.route) { NotificationsScreen(notificationsViewModel) }
             composable(Screen.Profile.route) {
-                ProfileScreen(profileViewModel, onLogout = {
-                    authViewModel.logout()
-                    navController.safeNavigate(Screen.Login.route) {
-                        popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
-                        launchSingleTop = true
+                ProfileScreen(
+                    viewModel = profileViewModel,
+                    onLogout = {
+                        authViewModel.logout()
+                        navController.safeNavigate(Screen.Login.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToMyBookings = {
+                        navController.safeNavigate(Screen.MyBookings.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onNavigateToNotifications = {
+                        navController.safeNavigate(Screen.Notifications.route) {
+                            launchSingleTop = true
+                        }
                     }
-                })
+                )
             }
         }
     }

@@ -35,17 +35,25 @@ class FirebaseAuthRepository @Inject constructor(
         runCatching {
             val result = auth.createUserWithEmailAndPassword(email.trim(), password).await()
             val user = result.user!!
-            user.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(name).build()).await()
-            firestore.collection(FirestorePaths.USERS).document(user.uid)
-                .set(
-                    mapOf(
-                        "fullName" to name,
-                        "phone" to phone
-                    ),
-                    SetOptions.merge()
-                )
-                .await()
-            user.toUser().copy(phone = phone)
+            runCatching {
+                user.updateProfile(UserProfileChangeRequest.Builder().setDisplayName(name).build()).await()
+            }
+            // Ensure Security Rules see request.auth before any Firestore write.
+            runCatching { user.getIdToken(true).await() }
+            // Best-effort profile write: if Firestore rules block it, sign-up still succeeds
+            // and FirestoreUserRepository will upsert the profile on first read.
+            runCatching {
+                firestore.collection(FirestorePaths.USERS).document(user.uid)
+                    .set(
+                        mapOf(
+                            "fullName" to name,
+                            "phone" to phone
+                        ),
+                        SetOptions.merge()
+                    )
+                    .await()
+            }
+            user.toUser().copy(name = name, phone = phone)
         }
 
     override suspend fun forgotPassword(email: String): Result<Boolean> =

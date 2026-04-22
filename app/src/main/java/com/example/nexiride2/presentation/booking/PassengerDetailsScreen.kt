@@ -22,7 +22,19 @@ import com.example.nexiride2.domain.model.Passenger
 fun PassengerDetailsScreen(bookingViewModel: BookingViewModel, onBack: () -> Unit, onContinue: () -> Unit) {
     val uiState by bookingViewModel.uiState.collectAsState()
     val seatCount = uiState.selectedSeats.size
-    var passengers by remember { mutableStateOf(List(seatCount) { Passenger("", "", uiState.selectedSeats.getOrNull(it)?.number ?: "") }) }
+    val currentUser = uiState.currentUser
+    // Prefill passenger 1 with the signed-in user's name + phone.
+    var passengers by remember(seatCount, currentUser?.id) {
+        mutableStateOf(
+            List(seatCount) { idx ->
+                Passenger(
+                    name = if (idx == 0) currentUser?.name.orEmpty() else "",
+                    phone = if (idx == 0) currentUser?.phone.orEmpty() else "",
+                    seatNumber = uiState.selectedSeats.getOrNull(idx)?.number ?: ""
+                )
+            }
+        )
+    }
     var bags by remember { mutableStateOf("1") }
     var weight by remember { mutableStateOf("15") }
 
