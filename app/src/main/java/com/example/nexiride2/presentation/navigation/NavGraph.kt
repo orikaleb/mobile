@@ -157,8 +157,18 @@ fun NexiRideNavHost(navController: NavHostController = rememberNavController()) 
                     })
             }
             composable(Screen.Home.route) {
+                val bottomNavOpts: NavOptionsBuilder.() -> Unit = {
+                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
                 HomeScreen(
-                    onSearchClick = { from, to -> searchViewModel.searchWithParams(from, to); navController.navigate(Screen.SearchResults.route) },
+                    onOpenSearch = { navController.navigate(Screen.Search.route, bottomNavOpts) },
+                    onOpenBookings = { navController.navigate(Screen.MyBookings.route, bottomNavOpts) },
+                    onPopularCityClick = { city ->
+                        searchViewModel.updateDestination(city)
+                        navController.navigate(Screen.Search.route, bottomNavOpts)
+                    },
                     onRouteClick = { routeId -> searchViewModel.selectRoute(routeId); navController.navigate(Screen.BusDetail.createRoute(routeId)) },
                     onProfileClick = { navController.navigate(Screen.Profile.route) { launchSingleTop = true } }
                 )

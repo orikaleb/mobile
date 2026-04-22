@@ -26,13 +26,13 @@ import com.example.nexiride2.ui.theme.*
 @Composable
 fun HomeScreen(
     homeViewModel: HomeViewModel = hiltViewModel(),
-    onSearchClick: (String, String) -> Unit,
+    onOpenSearch: () -> Unit,
+    onOpenBookings: () -> Unit = {},
+    onPopularCityClick: (String) -> Unit,
     onRouteClick: (String) -> Unit,
     onProfileClick: () -> Unit = {}
 ) {
     val uiState by homeViewModel.uiState.collectAsState()
-    var fromCity by remember { mutableStateOf("") }
-    var toCity by remember { mutableStateOf("") }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).verticalScroll(rememberScrollState())) {
         // Header with gradient
@@ -55,22 +55,36 @@ fun HomeScreen(
 
                 Spacer(Modifier.height(20.dp))
 
-                // Quick search card
+                // Quick actions (search lives on the Search tab)
                 Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = SurfaceLight)) {
                     Column(Modifier.padding(16.dp)) {
-                        OutlinedTextField(value = fromCity, onValueChange = { fromCity = it }, label = { Text("From") },
-                            leadingIcon = { Icon(Icons.Default.TripOrigin, null, tint = AccentGreen) },
-                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), singleLine = true)
-                        Spacer(Modifier.height(8.dp))
-                        OutlinedTextField(value = toCity, onValueChange = { toCity = it }, label = { Text("To") },
-                            leadingIcon = { Icon(Icons.Default.LocationOn, null, tint = StatusError) },
-                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), singleLine = true)
-                        Spacer(Modifier.height(12.dp))
-                        Button(onClick = { onSearchClick(fromCity, toCity) }, modifier = Modifier.fillMaxWidth().height(50.dp),
-                            shape = RoundedCornerShape(12.dp), enabled = fromCity.isNotBlank() && toCity.isNotBlank()) {
-                            Icon(Icons.Default.Search, null, Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Search Buses", fontWeight = FontWeight.Bold)
+                        Text("Plan your trip", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Compare routes, times, and prices — pick your travel day on Search.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Button(
+                                onClick = onOpenSearch,
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.Search, null, Modifier.size(20.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Search", fontWeight = FontWeight.SemiBold)
+                            }
+                            OutlinedButton(
+                                onClick = onOpenBookings,
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Icon(Icons.Default.ConfirmationNumber, null, Modifier.size(20.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Tickets", fontWeight = FontWeight.SemiBold)
+                            }
                         }
                     }
                 }
@@ -84,7 +98,7 @@ fun HomeScreen(
         Spacer(Modifier.height(8.dp))
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(uiState.cities) { city ->
-                SuggestionChip(onClick = { fromCity = city }, label = { Text(city) },
+                SuggestionChip(onClick = { onPopularCityClick(city) }, label = { Text(city) },
                     icon = { Icon(Icons.Default.LocationCity, null, Modifier.size(16.dp)) })
             }
         }

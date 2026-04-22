@@ -1,0 +1,11 @@
+rules_version = '2';
+// Deploy in Firebase Console → Storage → Rules. Authenticated users may only
+// write under avatars/{theirUid}/; anyone signed in can read avatars (adjust if needed).
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /avatars/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

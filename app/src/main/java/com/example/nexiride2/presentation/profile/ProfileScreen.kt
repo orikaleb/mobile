@@ -1,5 +1,9 @@
 package com.example.nexiride2.presentation.profile
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
@@ -17,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -24,6 +29,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.example.nexiride2.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,7 +42,16 @@ fun ProfileScreen(
     onNavigateToNotifications: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val displayBrightness by viewModel.brightnessState.collectAsStateWithLifecycle()
     val user = uiState.user
+
+    val pickPhoto = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri: Uri? -> uri?.let { viewModel.updateProfilePhoto(it.toString()) } }
+
+    val openPhotoPicker: () -> Unit = {
+        pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
 
     var showEditSheet by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
@@ -57,6 +73,18 @@ fun ProfileScreen(
         uiState.walletMessage?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearWalletMessage()
+        }
+    }
+    LaunchedEffect(uiState.photoError) {
+        uiState.photoError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearPhotoError()
+        }
+    }
+    LaunchedEffect(uiState.photoUpdateSuccess) {
+        if (uiState.photoUpdateSuccess) {
+            snackbarHostState.showSnackbar("Profile photo updated")
+            viewModel.clearPhotoUpdateSuccess()
         }
     }
 
@@ -150,34 +178,77 @@ fun ProfileScreen(
                     Modifier.fillMaxWidth().padding(top = 52.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Avatar ring
+                    // Avatar + photo picker
                     Box(contentAlignment = Alignment.BottomEnd) {
                         Box(
-                            Modifier.size(88.dp).clip(CircleShape)
+                            Modifier
+                                .size(88.dp)
+                                .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surface)
                                 .padding(3.dp)
                                 .clip(CircleShape)
-                                .background(Brush.linearGradient(listOf(GradientStart, GradientEnd))),
+                                .clickable(
+                                    enabled = !uiState.isUploadingPhoto,
+                                    onClick = openPhotoPicker
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                user?.name?.take(1)?.uppercase() ?: "?",
-                                style = MaterialTheme.typography.headlineLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = SurfaceLight
-                            )
+                            if (user?.profilePhotoUrl?.isNotBlank() == true) {
+                                AsyncImage(
+                                    model = user?.profilePhotoUrl,
+                                    contentDescription = "Profile photo",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Box(
+                                    Modifier.fillMaxSize()
+                                        .background(Brush.linearGradient(listOf(GradientStart, GradientEnd))),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        user?.name?.take(1)?.uppercase() ?: "?",
+                                        style = MaterialTheme.typography.headlineLarge,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = SurfaceLight
+                                    )
+                                }
+                            }
+                            if (uiState.isUploadingPhoto) {
+                                Box(
+                                    Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.4f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        Modifier.size(28.dp),
+                                        color = SurfaceLight,
+                                        strokeWidth = 2.dp
+                                    )
+                                }
+                            }
                         }
                         Box(
-                            Modifier.size(26.dp).clip(CircleShape)
+                            Modifier
+                                .size(26.dp)
+                                .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surface)
                                 .padding(3.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .clickable { showEditSheet = true },
+                                .clickable(
+                                    enabled = !uiState.isUploadingPhoto,
+                                    onClick = openPhotoPicker
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.CameraAlt, null, Modifier.size(13.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(
+                                Icons.Default.CameraAlt,
+                                null,
+                                Modifier.size(13.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
 
@@ -253,12 +324,19 @@ fun ProfileScreen(
                 SettingsRow(Icons.Default.Notifications, StatusWarning.copy(.12f), StatusWarning,
                     "Notifications", "Alerts & trip updates", onNavigateToNotifications)
                 RowDivider()
+                BrightnessPreferenceBlock(
+                    isAuto = displayBrightness.isAuto,
+                    manualLevel = displayBrightness.manualLevel,
+                    onAutoChange = { viewModel.setDisplayBrightnessAuto(it) },
+                    onManualChange = { viewModel.setDisplayBrightnessManual(it) }
+                )
+                RowDivider()
                 SettingsRow(Icons.Default.Language, StatusInfo.copy(.12f), StatusInfo,
                     "Language", "English (Ghana)") { showComingSoon = "Language" }
                 RowDivider()
                 SettingsRow(Icons.Default.DarkMode, MaterialTheme.colorScheme.onSurfaceVariant.copy(.1f),
                     MaterialTheme.colorScheme.onSurfaceVariant,
-                    "Appearance", "System default") { showComingSoon = "Appearance" }
+                    "Theme", "Light / system") { showComingSoon = "Theme" }
             }
 
             Spacer(Modifier.height(10.dp))
@@ -390,6 +468,65 @@ private fun EditProfileSheet(
 }
 
 // ── Section wrapper ───────────────────────────────────────────────────────────
+
+@Composable
+private fun BrightnessPreferenceBlock(
+    isAuto: Boolean,
+    manualLevel: Float,
+    onAutoChange: (Boolean) -> Unit,
+    onManualChange: (Float) -> Unit
+) {
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(PrimaryBlue.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Brightness6,
+                    contentDescription = null,
+                    modifier = Modifier.size(19.dp),
+                    tint = PrimaryBlue
+                )
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Auto brightness", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "System brightness and light sensor",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Switch(
+                checked = isAuto,
+                onCheckedChange = onAutoChange
+            )
+        }
+        if (!isAuto) {
+            Column(Modifier.padding(start = 68.dp, end = 16.dp, bottom = 12.dp)) {
+                Text(
+                    "In-app brightness",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Slider(
+                    value = manualLevel,
+                    onValueChange = onManualChange,
+                    valueRange = 0.15f..1f
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {

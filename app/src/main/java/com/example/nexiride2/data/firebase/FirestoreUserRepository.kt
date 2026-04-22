@@ -1,5 +1,6 @@
 package com.example.nexiride2.data.firebase
 
+import android.net.Uri
 import com.example.nexiride2.domain.model.PaymentMethod
 import com.example.nexiride2.domain.model.PaymentType
 import com.example.nexiride2.domain.model.User
@@ -7,6 +8,7 @@ import com.example.nexiride2.domain.repository.AuthRepository
 import com.example.nexiride2.domain.repository.UserRepository
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -18,6 +20,7 @@ import javax.inject.Singleton
 @Singleton
 class FirestoreUserRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
+    private val storage: FirebaseStorage,
     private val authRepository: AuthRepository
 ) : UserRepository {
 
@@ -72,9 +75,19 @@ class FirestoreUserRepository @Inject constructor(
     override suspend fun updateProfilePhoto(photoUri: String): Result<User> {
         val uid = currentId() ?: return Result.failure(Exception("Not signed in"))
         return try {
+            val downloadUrl = when {
+                photoUri.startsWith("http://", ignoreCase = true) ||
+                    photoUri.startsWith("https://", ignoreCase = true) -> photoUri
+                else -> {
+                    val uri = Uri.parse(photoUri)
+                    val ref = storage.reference.child("avatars/$uid/${System.currentTimeMillis()}.jpg")
+                    ref.putFile(uri).await()
+                    ref.downloadUrl.await().toString()
+                }
+            }
             userDoc(uid).set(
                 mapOf(
-                    "avatarUrl" to photoUri,
+                    "avatarUrl" to downloadUrl,
                     "updatedAt" to isoNow()
                 ),
                 SetOptions.merge()
