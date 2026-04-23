@@ -4,6 +4,7 @@ import android.app.Application
 import com.example.nexiride2.BuildConfig
 import com.example.nexiride2.data.firebase.FirebaseSeedEntryPoint
 import com.example.nexiride2.data.firebase.FirestoreSeed
+import com.example.nexiride2.notifications.NotificationChannels
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,9 @@ class NexiRideApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Register the system notification channel exactly once per install
+        // so FCM pushes land in the right bucket and respect user controls.
+        NotificationChannels.ensureCreated(this)
         if (BuildConfig.DEBUG) {
             val entry = EntryPointAccessors.fromApplication(this, FirebaseSeedEntryPoint::class.java)
             applicationScope.launch(Dispatchers.IO) {

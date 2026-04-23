@@ -123,24 +123,46 @@ fun TicketDetailScreen(
                     Box(contentAlignment = Alignment.Center) {
                         QrCodeView(data = booking.qrCodeData, size = 180.dp, showActions = !proximityNear)
                         if (proximityNear) {
+                            // Fully opaque cover so the QR cannot be read
+                            // through the overlay even on a bright OLED panel.
                             Box(
                                 Modifier
                                     .size(180.dp)
-                                    .background(Color.Black.copy(alpha = 0.88f), RoundedCornerShape(12.dp)),
+                                    .background(Color.Black, RoundedCornerShape(16.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(
-                                    "Move the phone away to reveal your QR code",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White,
-                                    modifier = Modifier.padding(12.dp)
-                                )
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Lock,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(
+                                        "QR code hidden",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Text(
+                                        "Move the phone away to reveal",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White.copy(alpha = 0.85f)
+                                    )
+                                }
                             }
                         }
                     }
                     Spacer(Modifier.height(10.dp))
+                    // Reference code is just as scannable as the QR itself —
+                    // mask it when the proximity sensor says the phone isn't
+                    // being looked at.
                     Text(
-                        booking.referenceCode,
+                        if (proximityNear) "•••• •••• ••••" else booking.referenceCode,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onPrimary
@@ -160,6 +182,28 @@ fun TicketDetailScreen(
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
+                    )
+                }
+            }
+
+            if (hasProximity) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        Icons.Default.Shield,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "Ticket auto-hides when the phone is covered",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -192,8 +236,14 @@ fun TicketDetailScreen(
                         booking.route.bus.busNumber?.trim()?.takeIf { it.isNotEmpty() } ?: "—"
                     )
                     DetailRow("Bus type", booking.route.bus.busType)
-                    DetailRow("Seats", booking.seats.joinToString { it.number })
-                    DetailRow("Passengers", booking.passengers.joinToString { it.name })
+                    DetailRow(
+                        "Seats",
+                        if (proximityNear) "Hidden" else booking.seats.joinToString { it.number }
+                    )
+                    DetailRow(
+                        "Passengers",
+                        if (proximityNear) "Hidden" else booking.passengers.joinToString { it.name }
+                    )
                     DetailRow("Paid with", booking.paymentMethod)
                     HorizontalDivider(Modifier.padding(vertical = 8.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

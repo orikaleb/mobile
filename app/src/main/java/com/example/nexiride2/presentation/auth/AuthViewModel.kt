@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.nexiride2.domain.model.User
 import com.example.nexiride2.domain.repository.AuthRepository
 import com.example.nexiride2.domain.repository.DriverRepository
+import com.example.nexiride2.notifications.FcmTokenManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,7 +33,8 @@ data class AuthUiState(
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val driverRepository: DriverRepository
+    private val driverRepository: DriverRepository,
+    private val fcmTokenManager: FcmTokenManager
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AuthUiState(isLoggedIn = authRepository.isLoggedIn(), user = authRepository.getCurrentUser()))
     val uiState = _uiState.asStateFlow()
@@ -48,6 +50,10 @@ class AuthViewModel @Inject constructor(
                     isLoggedIn = user != null,
                     isDriver = if (user == null) false else _uiState.value.isDriver
                 )
+                // Keep this device's FCM token attached to whichever account
+                // is currently signed in, so the push fan-out Cloud Function
+                // can reach the user.
+                if (user != null) fcmTokenManager.registerCurrentDevice()
             }
             .launchIn(viewModelScope)
 
@@ -102,6 +108,9 @@ class AuthViewModel @Inject constructor(
     }
 
     fun logout() = viewModelScope.launch {
+        // Remove this device's FCM token BEFORE signing out so the account
+        // doesn't keep receiving pushes on a device that's no longer theirs.
+        fcmTokenManager.unregisterCurrentDevice()
         authRepository.logout()
         _uiState.value = AuthUiState()
     }

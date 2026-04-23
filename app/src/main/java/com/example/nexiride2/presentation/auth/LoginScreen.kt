@@ -21,12 +21,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.nexiride2.R
 import com.example.nexiride2.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,28 +82,20 @@ fun LoginScreen(
                 Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Logo ring
+                // Logo ring — uses the NexiRide brand mark so the sign-in
+                // screen feels contiguous with the launcher icon the user
+                // just tapped.
                 Box(contentAlignment = Alignment.Center) {
                     Box(
                         Modifier.size(96.dp).clip(CircleShape)
                             .background(SurfaceLight.copy(alpha = 0.12f))
                     )
-                    Box(
-                        Modifier.size(72.dp).clip(CircleShape)
-                            .background(
-                                Brush.radialGradient(
-                                    listOf(SurfaceLight.copy(alpha = 0.3f), SurfaceLight.copy(alpha = 0.1f))
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.DirectionsBus,
-                            contentDescription = null,
-                            Modifier.size(38.dp),
-                            tint = SurfaceLight
-                        )
-                    }
+                    androidx.compose.foundation.Image(
+                        painter = painterResource(id = R.drawable.nexiride_logo),
+                        contentDescription = "NexiRide",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(80.dp).clip(RoundedCornerShape(20.dp))
+                    )
                 }
                 Spacer(Modifier.height(18.dp))
                 Text(

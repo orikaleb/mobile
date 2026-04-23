@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.nexiride2.domain.model.Driver
 import com.example.nexiride2.domain.repository.AuthRepository
 import com.example.nexiride2.domain.repository.DriverRepository
+import com.example.nexiride2.notifications.FcmTokenManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,7 +28,8 @@ data class DriverAuthUiState(
 @HiltViewModel
 class DriverAuthViewModel @Inject constructor(
     private val driverRepository: DriverRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val fcmTokenManager: FcmTokenManager
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(DriverAuthUiState())
     val uiState = _uiState.asStateFlow()
@@ -36,6 +38,7 @@ class DriverAuthViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isLoading = true, error = null)
         driverRepository.loginDriver(email, password).fold(
             onSuccess = { d ->
+                fcmTokenManager.registerCurrentDevice()
                 _uiState.value = DriverAuthUiState(driver = d, signedIn = true)
             },
             onFailure = {
@@ -71,6 +74,7 @@ class DriverAuthViewModel @Inject constructor(
             password = password
         ).fold(
             onSuccess = { d ->
+                fcmTokenManager.registerCurrentDevice()
                 _uiState.value = DriverAuthUiState(driver = d, signedIn = true)
             },
             onFailure = {
@@ -91,6 +95,7 @@ class DriverAuthViewModel @Inject constructor(
     }
 
     fun signOut() = viewModelScope.launch {
+        fcmTokenManager.unregisterCurrentDevice()
         authRepository.logout()
         _uiState.value = DriverAuthUiState()
     }
