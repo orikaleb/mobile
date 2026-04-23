@@ -35,6 +35,7 @@ fun LoginScreen(
     authViewModel: AuthViewModel,
     onNavigateToSignUp: () -> Unit,
     onNavigateToForgotPassword: () -> Unit,
+    onNavigateToDriverPortal: () -> Unit = {},
     onLoginSuccess: () -> Unit
 ) {
     val uiState by authViewModel.uiState.collectAsState()
@@ -338,6 +339,33 @@ fun LoginScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = PrimaryBlue,
                                 modifier = Modifier.clickable { onNavigateToSignUp() }
+                            )
+                        }
+
+                        Spacer(Modifier.height(14.dp))
+
+                        // Driver portal shortcut — takes bus drivers straight to
+                        // their dedicated sign-in / registration flow.
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { onNavigateToDriverPortal() }
+                                .padding(vertical = 10.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.DirectionsBus,
+                                null,
+                                Modifier.size(16.dp),
+                                tint = PrimaryBlue
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                "Bus driver? Open the driver portal",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = PrimaryBlue
                             )
                         }
                     }

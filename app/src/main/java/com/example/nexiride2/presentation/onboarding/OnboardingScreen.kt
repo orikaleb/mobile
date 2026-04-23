@@ -71,7 +71,11 @@ private val pages = listOf(
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 @Composable
-fun OnboardingScreen(onGetStarted: () -> Unit, onLogin: () -> Unit) {
+fun OnboardingScreen(
+    onGetStarted: () -> Unit,
+    onLogin: () -> Unit,
+    onDriverPortal: () -> Unit = {}
+) {
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val scope = rememberCoroutineScope()
     val current = pagerState.currentPage
@@ -175,6 +179,27 @@ fun OnboardingScreen(onGetStarted: () -> Unit, onLogin: () -> Unit) {
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
                             color = SurfaceLight.copy(alpha = 0.85f)
+                        )
+                    }
+                    // Driver portal entry — opens a separate sign-in / register
+                    // flow specifically for bus drivers.
+                    Row(
+                        Modifier.fillMaxWidth().clickable { onDriverPortal() },
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.DirectionsBus,
+                            null,
+                            Modifier.size(16.dp),
+                            tint = SurfaceLight.copy(alpha = 0.85f)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            "Bus driver? Open the driver portal",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = SurfaceLight.copy(alpha = 0.85f),
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 } else {

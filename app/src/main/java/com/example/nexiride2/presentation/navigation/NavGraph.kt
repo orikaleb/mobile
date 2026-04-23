@@ -17,6 +17,10 @@ import androidx.navigation.compose.*
 import com.example.nexiride2.presentation.admin.AdminScreen
 import com.example.nexiride2.presentation.auth.*
 import com.example.nexiride2.presentation.booking.*
+import com.example.nexiride2.presentation.driver.DriverAuthViewModel
+import com.example.nexiride2.presentation.driver.DriverHomeScreen
+import com.example.nexiride2.presentation.driver.DriverHomeViewModel
+import com.example.nexiride2.presentation.driver.DriverPortalScreen
 import com.example.nexiride2.presentation.home.*
 import com.example.nexiride2.presentation.mybookings.*
 import com.example.nexiride2.presentation.notifications.*
@@ -45,6 +49,8 @@ sealed class Screen(val route: String) {
     object Notifications : Screen("notifications")
     object Profile : Screen("profile")
     object Admin : Screen("admin")
+    object DriverPortal : Screen("driver_portal")
+    object DriverHome : Screen("driver_home")
 }
 
 data class BottomNavItem(val route: String, val label: String, val selectedIcon: ImageVector, val unselectedIcon: ImageVector)
@@ -100,18 +106,16 @@ fun NexiRideNavHost(navController: NavHostController = rememberNavController()) 
     ) { innerPadding ->
         NavHost(navController, startDestination = Screen.Splash.route, Modifier.padding(innerPadding)) {
             composable(Screen.Splash.route) {
-                val isLoggedIn = authViewModel.uiState.collectAsState().value.isLoggedIn
+                val authState = authViewModel.uiState.collectAsState().value
                 SplashScreen {
-                    if (isLoggedIn) {
-                        navController.safeNavigate(Screen.Home.route) {
-                            popUpTo(Screen.Splash.route) { inclusive = true }
-                            launchSingleTop = true
-                        }
-                    } else {
-                        navController.safeNavigate(Screen.Onboarding.route) {
-                            popUpTo(Screen.Splash.route) { inclusive = true }
-                            launchSingleTop = true
-                        }
+                    val dest = when {
+                        authState.isLoggedIn && authState.isDriver -> Screen.DriverHome.route
+                        authState.isLoggedIn -> Screen.Home.route
+                        else -> Screen.Onboarding.route
+                    }
+                    navController.safeNavigate(dest) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                        launchSingleTop = true
                     }
                 }
             }
@@ -123,15 +127,25 @@ fun NexiRideNavHost(navController: NavHostController = rememberNavController()) 
                             launchSingleTop = true
                         }
                     },
-                    onLogin = { navController.safeNavigate(Screen.Login.route) { launchSingleTop = true } }
+                    onLogin = { navController.safeNavigate(Screen.Login.route) { launchSingleTop = true } },
+                    onDriverPortal = {
+                        navController.safeNavigate(Screen.DriverPortal.route) { launchSingleTop = true }
+                    }
                 )
             }
             composable(Screen.Login.route) {
                 LoginScreen(authViewModel,
                     onNavigateToSignUp = { navController.safeNavigate(Screen.SignUp.route) { launchSingleTop = true } },
                     onNavigateToForgotPassword = { navController.safeNavigate(Screen.ForgotPassword.route) { launchSingleTop = true } },
+                    onNavigateToDriverPortal = {
+                        navController.safeNavigate(Screen.DriverPortal.route) { launchSingleTop = true }
+                    },
                     onLoginSuccess = {
-                        navController.safeNavigate(Screen.Home.route) {
+                        // If the account is actually a driver, redirect to the driver
+                        // portal so they don't land in the passenger home by mistake.
+                        val target = if (authViewModel.uiState.value.isDriver) Screen.DriverHome.route
+                        else Screen.Home.route
+                        navController.safeNavigate(target) {
                             popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                             launchSingleTop = true
                         }
@@ -141,6 +155,9 @@ fun NexiRideNavHost(navController: NavHostController = rememberNavController()) 
             composable(Screen.SignUp.route) {
                 SignUpScreen(authViewModel,
                     onNavigateToLogin = { navController.safeNavigate(Screen.Login.route) { launchSingleTop = true } },
+                    onNavigateToDriverPortal = {
+                        navController.safeNavigate(Screen.DriverPortal.route) { launchSingleTop = true }
+                    },
                     onSignUpSuccess = {
                         navController.safeNavigate(Screen.Home.route) {
                             popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
@@ -249,11 +266,61 @@ fun NexiRideNavHost(navController: NavHostController = rememberNavController()) 
                     },
                     onNavigateToAdmin = {
                         navController.safeNavigate(Screen.Admin.route) { launchSingleTop = true }
+                    },
+                    onNavigateToDriverPortal = {
+                        navController.safeNavigate(Screen.DriverPortal.route) { launchSingleTop = true }
                     }
                 )
             }
             composable(Screen.Admin.route) {
                 AdminScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.DriverPortal.route) {
+                val driverAuthVm: DriverAuthViewModel = hiltViewModel()
+                // If the currently signed-in account is already a registered
+                // driver, skip the sign-in form entirely and take them straight
+                // to the driver home — no need to re-enter credentials.
+                val authState = authViewModel.uiState.collectAsState().value
+                LaunchedEffect(authState.isLoggedIn, authState.isDriver) {
+                    if (authState.isLoggedIn && authState.isDriver) {
+                        navController.safeNavigate(Screen.DriverHome.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                }
+                DriverPortalScreen(
+                    viewModel = driverAuthVm,
+                    onBack = {
+                        // Per request: exiting the portal always lands on the
+                        // passenger sign-in page instead of whatever screen
+                        // happened to be behind it on the back stack.
+                        navController.safeNavigate(Screen.Login.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                    onAuthenticated = {
+                        navController.safeNavigate(Screen.DriverHome.route) {
+                            // Clear the portal + onboarding/login stack so logout
+                            // bounces correctly.
+                            popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+            composable(Screen.DriverHome.route) {
+                val driverHomeVm: DriverHomeViewModel = hiltViewModel()
+                DriverHomeScreen(
+                    viewModel = driverHomeVm,
+                    onSignedOut = {
+                        navController.safeNavigate(Screen.Onboarding.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
             }
         }
     }

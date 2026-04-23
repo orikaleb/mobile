@@ -3,6 +3,8 @@ package com.example.nexiride2.presentation.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nexiride2.data.firebase.FirestoreSeed
+import com.example.nexiride2.domain.model.Driver
+import com.example.nexiride2.domain.model.FleetBus
 import com.example.nexiride2.domain.model.Route
 import com.example.nexiride2.domain.model.User
 import com.example.nexiride2.domain.repository.AdminBookingEntry
@@ -22,7 +24,20 @@ enum class AdminTab(val label: String) {
     OVERVIEW("Overview"),
     USERS("Users"),
     BOOKINGS("Bookings"),
+    FLEET("Fleet"),
     BROADCAST("Broadcast")
+}
+
+/** Form state for registering a new fleet bus from the admin screen. */
+data class BusFormState(
+    val busNumber: String = "",
+    val companyName: String = "",
+    val busType: String = "Standard",
+    val totalSeats: String = "45"
+) {
+    fun isValid(): Boolean =
+        busNumber.isNotBlank() && companyName.isNotBlank() &&
+            busType.isNotBlank() && (totalSeats.toIntOrNull() ?: 0) > 0
 }
 
 data class AdminUiState(
@@ -33,12 +48,17 @@ data class AdminUiState(
     val popularRoutes: List<Route> = emptyList(),
     val users: List<User> = emptyList(),
     val bookings: List<AdminBookingEntry> = emptyList(),
+    val drivers: List<Driver> = emptyList(),
+    val buses: List<FleetBus> = emptyList(),
     val totalRevenueGhs: Double = 0.0,
     val isSeeding: Boolean = false,
     val isBroadcasting: Boolean = false,
+    val isSavingBus: Boolean = false,
     val cancellingBookingId: String? = null,
+    val mutatingDriverId: String? = null,
     val broadcastTitle: String = "",
     val broadcastMessage: String = "",
+    val busForm: BusFormState = BusFormState(),
     val message: String? = null,
     val error: String? = null
 )
@@ -71,8 +91,33 @@ class AdminViewModel @Inject constructor(
         val current = authRepository.getCurrentUser()
         val cities = busRepository.getAvailableCities()
         val popular = busRepository.getPopularRoutes().getOrDefault(emptyList())
-        val users = adminRepository.listAllUsers().getOrDefault(emptyList())
-        val bookings = adminRepository.listAllBookings().getOrDefault(emptyList())
+
+        // Collect failures as we go instead of silently swallowing them so the
+        // admin actually sees why a collection is empty (e.g. permission denied
+        // because rules haven't been pushed yet).
+        val failures = mutableListOf<String>()
+
+        val usersResult = adminRepository.listAllUsers()
+        val users = usersResult.getOrElse {
+            failures += "users: ${it.message ?: it.javaClass.simpleName}"
+            emptyList()
+        }
+        val bookingsResult = adminRepository.listAllBookings()
+        val bookings = bookingsResult.getOrElse {
+            failures += "bookings: ${it.message ?: it.javaClass.simpleName}"
+            emptyList()
+        }
+        val driversResult = adminRepository.listAllDrivers()
+        val drivers = driversResult.getOrElse {
+            failures += "drivers: ${it.message ?: it.javaClass.simpleName}"
+            emptyList()
+        }
+        val busesResult = adminRepository.listAllBuses()
+        val buses = busesResult.getOrElse {
+            failures += "buses: ${it.message ?: it.javaClass.simpleName}"
+            emptyList()
+        }
+
         val revenue = bookings
             .filter { it.booking.status.name != "CANCELLED" }
             .sumOf { it.booking.totalPrice }
@@ -83,7 +128,11 @@ class AdminViewModel @Inject constructor(
             popularRoutes = popular,
             users = users,
             bookings = bookings,
-            totalRevenueGhs = revenue
+            drivers = drivers,
+            buses = buses,
+            totalRevenueGhs = revenue,
+            error = if (failures.isEmpty()) null
+            else "Some collections failed to load — ${failures.joinToString("; ")}"
         )
     }
 
@@ -171,5 +220,104 @@ class AdminViewModel @Inject constructor(
             bookings = bookings,
             totalRevenueGhs = revenue
         )
+    }
+
+    // ── Fleet management ─────────────────────────────────────────────────────
+
+    fun updateBusForm(update: (BusFormState) -> BusFormState) {
+        _uiState.value = _uiState.value.copy(busForm = update(_uiState.value.busForm))
+    }
+
+    fun registerBus() = viewModelScope.launch {
+        val form = _uiState.value.busForm
+        if (!form.isValid()) {
+            _uiState.value = _uiState.value.copy(
+                error = "Bus number, company, type, and seat count are required."
+            )
+            return@launch
+        }
+        _uiState.value = _uiState.value.copy(isSavingBus = true, message = null, error = null)
+        val bus = FleetBus(
+            id = "",
+            busNumber = form.busNumber.trim(),
+            companyName = form.companyName.trim(),
+            busType = form.busType.trim(),
+            totalSeats = form.totalSeats.toIntOrNull() ?: 0
+        )
+        adminRepository.upsertBus(bus).fold(
+            onSuccess = {
+                _uiState.value = _uiState.value.copy(
+                    isSavingBus = false,
+                    busForm = BusFormState(),
+                    message = "Bus ${it.busNumber} registered"
+                )
+                refreshFleet()
+            },
+            onFailure = {
+                _uiState.value = _uiState.value.copy(
+                    isSavingBus = false,
+                    error = it.message ?: "Could not save bus"
+                )
+            }
+        )
+    }
+
+    fun deleteBus(busId: String) = viewModelScope.launch {
+        adminRepository.deleteBus(busId).fold(
+            onSuccess = {
+                _uiState.value = _uiState.value.copy(message = "Bus removed")
+                refreshFleet()
+            },
+            onFailure = {
+                _uiState.value = _uiState.value.copy(
+                    error = it.message ?: "Could not delete bus"
+                )
+            }
+        )
+    }
+
+    fun setDriverActive(driver: Driver, active: Boolean) = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(mutatingDriverId = driver.id, error = null)
+        adminRepository.setDriverActive(driver.id, active).fold(
+            onSuccess = {
+                _uiState.value = _uiState.value.copy(
+                    mutatingDriverId = null,
+                    message = if (active) "${driver.fullName} enabled" else "${driver.fullName} disabled"
+                )
+                refreshFleet()
+            },
+            onFailure = {
+                _uiState.value = _uiState.value.copy(
+                    mutatingDriverId = null,
+                    error = it.message ?: "Could not update driver"
+                )
+            }
+        )
+    }
+
+    fun assignBusToDriver(driver: Driver, bus: FleetBus?) = viewModelScope.launch {
+        _uiState.value = _uiState.value.copy(mutatingDriverId = driver.id, error = null)
+        adminRepository.assignDriverBus(driver.id, bus).fold(
+            onSuccess = {
+                _uiState.value = _uiState.value.copy(
+                    mutatingDriverId = null,
+                    message = if (bus == null) "${driver.fullName}: bus cleared"
+                    else "${driver.fullName} assigned to ${bus.busNumber}"
+                )
+                refreshFleet()
+            },
+            onFailure = {
+                _uiState.value = _uiState.value.copy(
+                    mutatingDriverId = null,
+                    error = it.message ?: "Could not assign bus"
+                )
+            }
+        )
+    }
+
+    private suspend fun refreshFleet() {
+        val drivers = adminRepository.listAllDrivers().getOrDefault(emptyList())
+        val buses = adminRepository.listAllBuses().getOrDefault(emptyList())
+        _uiState.value = _uiState.value.copy(drivers = drivers, buses = buses)
     }
 }

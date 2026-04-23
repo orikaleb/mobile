@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nexiride2.domain.model.User
 import com.example.nexiride2.domain.repository.AuthRepository
+import com.example.nexiride2.domain.repository.DriverRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,6 +18,12 @@ data class AuthUiState(
     val user: User? = null,
     val error: String? = null,
     val isLoggedIn: Boolean = false,
+    /**
+     * True when the signed-in account has a matching `drivers/{uid}` document.
+     * Controls whether the splash screen routes to the passenger home or the
+     * driver portal on app restart.
+     */
+    val isDriver: Boolean = false,
     val otpSent: Boolean = false,
     val otpVerified: Boolean = false,
     val passwordReset: Boolean = false
@@ -24,7 +31,8 @@ data class AuthUiState(
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val driverRepository: DriverRepository
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(AuthUiState(isLoggedIn = authRepository.isLoggedIn(), user = authRepository.getCurrentUser()))
     val uiState = _uiState.asStateFlow()
@@ -37,8 +45,18 @@ class AuthViewModel @Inject constructor(
             .onEach { user ->
                 _uiState.value = _uiState.value.copy(
                     user = user,
-                    isLoggedIn = user != null
+                    isLoggedIn = user != null,
+                    isDriver = if (user == null) false else _uiState.value.isDriver
                 )
+            }
+            .launchIn(viewModelScope)
+
+        // In parallel, track whether the signed-in account is a driver so the
+        // splash can route bus drivers straight to the driver portal instead
+        // of the passenger home after an app restart.
+        driverRepository.observeCurrentDriver()
+            .onEach { driver ->
+                _uiState.value = _uiState.value.copy(isDriver = driver != null)
             }
             .launchIn(viewModelScope)
     }

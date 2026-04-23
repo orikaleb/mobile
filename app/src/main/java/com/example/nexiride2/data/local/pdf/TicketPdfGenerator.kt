@@ -45,6 +45,12 @@ class TicketPdfGenerator(
             }
 
             row("Route", "${booking.route.origin} → ${booking.route.destination}")
+            val boardingStation = booking.route.stops.firstOrNull()?.name
+                ?.takeIf { it.isNotBlank() } ?: booking.route.origin
+            val arrivalStation = booking.route.stops.lastOrNull()?.name
+                ?.takeIf { it.isNotBlank() } ?: booking.route.destination
+            row("Boarding", "$boardingStation, ${booking.route.origin}")
+            row("Drop-off", "$arrivalStation, ${booking.route.destination}")
             row("Date", booking.route.date)
             row("Time", "${booking.route.departureTime} - ${booking.route.arrivalTime}")
             row("Operator", booking.route.bus.companyName)

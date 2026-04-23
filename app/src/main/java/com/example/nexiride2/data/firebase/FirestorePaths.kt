@@ -8,4 +8,8 @@ internal object FirestorePaths {
     const val USERS = "users"
     const val NOTIFICATIONS = "notifications"
     const val PAYMENT_METHODS = "payment_methods"
+    /** Driver profiles, keyed by the driver's Firebase Auth UID. */
+    const val DRIVERS = "drivers"
+    /** Registered fleet buses, admin-managed. */
+    const val BUSES = "buses"
 }

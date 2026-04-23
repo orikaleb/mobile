@@ -6,6 +6,7 @@ import com.example.nexiride2.data.firebase.FirebaseAuthRepository
 import com.example.nexiride2.data.firebase.FirestoreAdminRepository
 import com.example.nexiride2.data.firebase.FirestoreBookingRepository
 import com.example.nexiride2.data.firebase.FirestoreBusRepository
+import com.example.nexiride2.data.firebase.FirestoreDriverRepository
 import com.example.nexiride2.data.firebase.FirestoreNotificationRepository
 import com.example.nexiride2.data.firebase.FirestoreUserRepository
 import com.example.nexiride2.data.local.db.DownloadedTicketDao
@@ -20,6 +21,7 @@ import com.example.nexiride2.domain.repository.AuthRepository
 import com.example.nexiride2.domain.repository.BookingRepository
 import com.example.nexiride2.domain.repository.BusRepository
 import com.example.nexiride2.domain.repository.DownloadedTicketRepository
+import com.example.nexiride2.domain.repository.DriverRepository
 import com.example.nexiride2.domain.repository.NotificationRepository
 import com.example.nexiride2.domain.repository.UserRepository
 import com.example.nexiride2.domain.repository.WalletRepository
@@ -69,6 +71,10 @@ object RepositoryModule {
     @Provides
     @Singleton
     fun provideAdminRepository(impl: FirestoreAdminRepository): AdminRepository = impl
+
+    @Provides
+    @Singleton
+    fun provideDriverRepository(impl: FirestoreDriverRepository): DriverRepository = impl
 
     @Provides
     @Singleton

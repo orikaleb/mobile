@@ -176,6 +176,14 @@ fun TicketDetailScreen(
                     Text("Trip Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.height(8.dp))
                     DetailRow("Route", "${booking.route.origin} → ${booking.route.destination}")
+                    // Stations are the actual places the passenger boards / drops off.
+                    // Fall back to the city name if we don't have a richer terminal entry.
+                    val boardingStation = booking.route.stops.firstOrNull()?.name
+                        ?.takeIf { it.isNotBlank() } ?: booking.route.origin
+                    val arrivalStation = booking.route.stops.lastOrNull()?.name
+                        ?.takeIf { it.isNotBlank() } ?: booking.route.destination
+                    DetailRow("Boarding station", "$boardingStation, ${booking.route.origin}")
+                    DetailRow("Drop-off station", "$arrivalStation, ${booking.route.destination}")
                     DetailRow("Date", booking.route.date)
                     DetailRow("Time", "${booking.route.departureTime} - ${booking.route.arrivalTime}")
                     DetailRow("Operator", booking.route.bus.companyName)

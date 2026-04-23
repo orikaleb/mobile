@@ -59,8 +59,8 @@ object MockData {
                             currency = "GHS",
                             bus = bus,
                             stops = listOf(
-                                BusStop("o$idx", from, dep, dep, null, 1),
-                                BusStop("d$idx", to, arr, arr, null, 2)
+                                BusStop("o$idx", Stations.forCity(from), dep, dep, null, 1),
+                                BusStop("d$idx", Stations.forCity(to), arr, arr, null, 2)
                             ),
                             availableSeats = seatsAvail,
                             date = INVENTORY_DATE

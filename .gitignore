@@ -71,3 +71,8 @@ android-ndk-r14b/
 
 # Kotlin
 *.kotlin_module
+
+# Firebase CLI installed locally for firestore rule deploys
+node_modules/
+package.json
+package-lock.json

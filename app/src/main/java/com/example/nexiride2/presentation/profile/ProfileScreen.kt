@@ -41,7 +41,8 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     onNavigateToMyBookings: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
-    onNavigateToAdmin: () -> Unit = {}
+    onNavigateToAdmin: () -> Unit = {},
+    onNavigateToDriverPortal: () -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val displayBrightness by viewModel.brightnessState.collectAsStateWithLifecycle()
@@ -368,6 +369,21 @@ fun ProfileScreen(
                         onClick = onNavigateToAdmin
                     )
                 }
+            }
+
+            // ── Driver portal shortcut ────────────────────────────────────────
+            // Always visible so a logged-in passenger (or admin) can jump to the
+            // driver sign-in / registration flow without signing out first.
+            Spacer(Modifier.height(10.dp))
+            SettingsSection(title = "BUS DRIVERS") {
+                SettingsRow(
+                    icon = Icons.Default.DirectionsBus,
+                    iconBg = AccentGreenDark.copy(.1f),
+                    iconTint = AccentGreenDark,
+                    title = "Driver Portal",
+                    subtitle = "Sign in or register as a bus driver",
+                    onClick = onNavigateToDriverPortal
+                )
             }
 
             Spacer(Modifier.height(20.dp))

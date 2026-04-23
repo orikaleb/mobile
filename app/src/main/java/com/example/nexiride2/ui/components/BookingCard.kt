@@ -54,6 +54,19 @@ fun BookingCard(
                 Icon(Icons.Default.LocationOn, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.primary)
                 Text("${booking.route.origin} → ${booking.route.destination}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             }
+            // Terminal names give the passenger a concrete place to show up at.
+            val boardingStation = booking.route.stops.firstOrNull()?.name
+                ?.takeIf { it.isNotBlank() && it != booking.route.origin }
+            val arrivalStation = booking.route.stops.lastOrNull()?.name
+                ?.takeIf { it.isNotBlank() && it != booking.route.destination }
+            if (boardingStation != null || arrivalStation != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    "${boardingStation ?: booking.route.origin} → ${arrivalStation ?: booking.route.destination}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             val busNo = booking.route.bus.busNumber?.trim().orEmpty()
             val type = booking.route.bus.busType
             if (busNo.isNotEmpty() || type.isNotEmpty()) {

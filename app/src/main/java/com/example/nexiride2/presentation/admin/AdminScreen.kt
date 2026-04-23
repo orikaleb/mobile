@@ -19,7 +19,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import com.example.nexiride2.domain.model.BookingStatus
+import com.example.nexiride2.domain.model.Driver
+import com.example.nexiride2.domain.model.FleetBus
 import com.example.nexiride2.domain.repository.AdminBookingEntry
 import com.example.nexiride2.domain.model.User
 import com.example.nexiride2.ui.theme.*
@@ -114,6 +118,14 @@ fun AdminScreen(
                     cancellingBookingId = uiState.cancellingBookingId,
                     onRequestCancel = { confirmCancelId = it }
                 )
+                AdminTab.FLEET -> FleetTab(
+                    state = uiState,
+                    onFormChange = viewModel::updateBusForm,
+                    onRegisterBus = { viewModel.registerBus() },
+                    onDeleteBus = { viewModel.deleteBus(it) },
+                    onSetActive = { driver, active -> viewModel.setDriverActive(driver, active) },
+                    onAssignBus = { driver, bus -> viewModel.assignBusToDriver(driver, bus) }
+                )
                 AdminTab.BROADCAST -> BroadcastTab(
                     title = uiState.broadcastTitle,
                     message = uiState.broadcastMessage,
@@ -158,6 +170,22 @@ private fun OverviewTab(
                     "Revenue (GHS)",
                     "%.0f".format(state.totalRevenueGhs),
                     PrimaryBlueLight
+                )
+            }
+        }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                StatCard(
+                    Modifier.weight(1f),
+                    "Drivers",
+                    state.drivers.size.toString(),
+                    PrimaryBlue
+                )
+                StatCard(
+                    Modifier.weight(1f),
+                    "Buses",
+                    state.buses.size.toString(),
+                    AccentGreenDark
                 )
             }
         }
@@ -569,6 +597,315 @@ private fun StatCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Fleet (drivers + buses)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun FleetTab(
+    state: AdminUiState,
+    onFormChange: ((BusFormState) -> BusFormState) -> Unit,
+    onRegisterBus: () -> Unit,
+    onDeleteBus: (String) -> Unit,
+    onSetActive: (Driver, Boolean) -> Unit,
+    onAssignBus: (Driver, FleetBus?) -> Unit
+) {
+    var assignmentTargetDriver by remember { mutableStateOf<Driver?>(null) }
+
+    // Dialog: pick a bus to assign to the selected driver.
+    assignmentTargetDriver?.let { driver ->
+        AlertDialog(
+            onDismissRequest = { assignmentTargetDriver = null },
+            title = { Text("Assign bus to ${driver.fullName}") },
+            text = {
+                if (state.buses.isEmpty()) {
+                    Text("No buses registered yet. Add one below and try again.")
+                } else {
+                    Column {
+                        TextButton(onClick = {
+                            onAssignBus(driver, null)
+                            assignmentTargetDriver = null
+                        }) { Text("Clear current assignment") }
+                        state.buses.forEach { bus ->
+                            TextButton(onClick = {
+                                onAssignBus(driver, bus)
+                                assignmentTargetDriver = null
+                            }) { Text("${bus.busNumber} · ${bus.companyName}") }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { assignmentTargetDriver = null }) { Text("Close") }
+            }
+        )
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                StatCard(Modifier.weight(1f), "Drivers", state.drivers.size.toString(), PrimaryBlue)
+                StatCard(Modifier.weight(1f), "Buses", state.buses.size.toString(), AccentGreenDark)
+            }
+        }
+
+        // ── Register bus ────────────────────────────────────────────────────
+        item { SectionHeading("Register a bus") }
+        item {
+            Card(shape = RoundedCornerShape(14.dp)) {
+                Column(Modifier.padding(14.dp)) {
+                    OutlinedTextField(
+                        value = state.busForm.busNumber,
+                        onValueChange = { v -> onFormChange { it.copy(busNumber = v) } },
+                        label = { Text("Bus registration (e.g. GR-4455-23)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = state.busForm.companyName,
+                        onValueChange = { v -> onFormChange { it.copy(companyName = v) } },
+                        label = { Text("Operating company") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = state.busForm.busType,
+                            onValueChange = { v -> onFormChange { it.copy(busType = v) } },
+                            label = { Text("Type") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        OutlinedTextField(
+                            value = state.busForm.totalSeats,
+                            onValueChange = { v -> onFormChange { it.copy(totalSeats = v.filter { c -> c.isDigit() }) } },
+                            label = { Text("Seats") },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = onRegisterBus,
+                        enabled = !state.isSavingBus && state.busForm.isValid(),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (state.isSavingBus) {
+                            CircularProgressIndicator(
+                                Modifier.size(18.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(Icons.Default.DirectionsBus, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Add bus", fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Bus list ────────────────────────────────────────────────────────
+        item { SectionHeading("Registered buses (${state.buses.size})") }
+        if (state.buses.isEmpty()) {
+            item {
+                Text(
+                    "No buses in the registry yet.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            items(state.buses, key = { it.id }) { bus ->
+                Card(shape = RoundedCornerShape(14.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.DirectionsBus, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                bus.busNumber,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                "${bus.companyName} · ${bus.busType} · ${bus.totalSeats} seats",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            val driverId = bus.driverId
+                            if (!driverId.isNullOrBlank()) {
+                                val driver = state.drivers.firstOrNull { it.id == driverId }
+                                Text(
+                                    "Driver: ${driver?.fullName ?: driverId.take(8)}…",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        IconButton(onClick = { onDeleteBus(bus.id) }) {
+                            Icon(Icons.Default.Delete, null, tint = StatusError)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Driver list ─────────────────────────────────────────────────────
+        item { SectionHeading("Bus drivers (${state.drivers.size})") }
+        if (state.drivers.isEmpty()) {
+            item {
+                Text(
+                    "No driver has registered yet. Share the app and tell drivers to use the Driver portal entry on the onboarding screen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        } else {
+            items(state.drivers, key = { it.id }) { driver ->
+                DriverAdminCard(
+                    driver = driver,
+                    mutating = state.mutatingDriverId == driver.id,
+                    onSetActive = { active -> onSetActive(driver, active) },
+                    onAssignBus = { assignmentTargetDriver = driver }
+                )
+            }
+        }
+        item { Spacer(Modifier.height(40.dp)) }
+    }
+}
+
+@Composable
+private fun SectionHeading(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.ExtraBold,
+        modifier = Modifier.padding(top = 8.dp)
+    )
+}
+
+@Composable
+private fun DriverAdminCard(
+    driver: Driver,
+    mutating: Boolean,
+    onSetActive: (Boolean) -> Unit,
+    onAssignBus: () -> Unit
+) {
+    Card(shape = RoundedCornerShape(14.dp)) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(38.dp).clip(CircleShape)
+                        .background(Brush.linearGradient(listOf(GradientStart, GradientEnd))),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        driver.fullName.take(1).uppercase().ifBlank { "?" },
+                        color = SurfaceLight,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        driver.fullName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    if (driver.email.isNotBlank()) {
+                        Text(
+                            driver.email,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1
+                        )
+                    }
+                    Text(
+                        "License: ${driver.licenseNumber.ifBlank { "—" }}" +
+                            (if (driver.companyName.isNotBlank()) " · ${driver.companyName}" else ""),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "Bus: ${driver.assignedBusNumber ?: "unassigned"}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Surface(
+                    color = if (driver.active) AccentGreenDark.copy(alpha = 0.15f)
+                    else StatusError.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Text(
+                        if (driver.active) "Active" else "Disabled",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (driver.active) AccentGreenDark else StatusError,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onAssignBus,
+                    enabled = !mutating,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.DirectionsBus, null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Assign bus", style = MaterialTheme.typography.labelMedium)
+                }
+                OutlinedButton(
+                    onClick = { onSetActive(!driver.active) },
+                    enabled = !mutating,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = if (driver.active) StatusError else AccentGreenDark
+                    )
+                ) {
+                    if (mutating) {
+                        CircularProgressIndicator(
+                            Modifier.size(14.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Icon(
+                            if (driver.active) Icons.Default.Block else Icons.Default.CheckCircle,
+                            null,
+                            Modifier.size(16.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            if (driver.active) "Disable" else "Enable",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+            }
         }
     }
 }
